@@ -128,7 +128,9 @@
     {
      "id": "khalaf-hamza",
      "n": "خلف",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "khalaf",
+     "title": "رواية خلف عن حمزة"
     },
     {
      "id": "khallad",
