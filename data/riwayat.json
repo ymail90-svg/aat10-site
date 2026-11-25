@@ -56,7 +56,10 @@
     {
      "id": "duri-abuamr",
      "n": "الدوري",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "duri",
+     "focus": null,
+     "title": "رواية الدوري عن أبي عمرو"
     },
     {
      "id": "susi",
