@@ -130,13 +130,19 @@
      "n": "خلف",
      "status": "ready",
      "mushaf": "khalaf",
-     "title": "رواية خلف عن حمزة"
+     "title": "مصحف حمزة · رواية خلف"
     },
     {
      "id": "khallad",
      "n": "خلاد",
      "tag": "بالهامش",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "khalaf",
+     "focus": [
+      "خلاد",
+      "حمزة"
+     ],
+     "title": "مصحف حمزة · هامش خلاد"
     }
    ]
   },
