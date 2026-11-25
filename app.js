@@ -183,7 +183,7 @@ function render() {
   const usul = RWV.plain ? '' : RWV.mushaf === 'base' ? (B.usul[st.page] ? '<button class="usb" id="usb">أصول الصفحة</button>' : '') : (M.usul && M.usul.length ? '<button class="usb" id="qusb">' + esc(M.usulTitle || 'تعريف المصحف') + '</button>' : '');
   const foot = RWV.plain ? 'النص: مشروع تنزيل tanzil.net (رواية حفص عن عاصم)' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل tanzil.net · الفرش: مصحف الراجح (الشاطبية والدرة)' : M.foot || '';
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
-  LS.set('page', st.page); track(); markUI();
+  LS.set('page', st.page); track(); markUI(); pushRecent();
 }
 function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 
@@ -220,7 +220,7 @@ function setMode(m) {
   st.mode = m; st.revealed.clear(); st.last = null; st.showAll = false; cancelAnimationFrame(tj.raf);
   document.body.classList.toggle('m-tj', m === 'tj'); document.body.classList.toggle('m-mem', m === 'mem');
   document.querySelectorAll('#modes button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
-  if (m === 'tj') tj.on = true;
+  if (m === 'tj') tj.on = true; autoFlip();
   render(); if (m !== 'tj') scrollTo(0, 0);
 }
 $('modes').onclick = (e) => { const b = e.target.closest('button[data-m]'); if (b) setMode(b.dataset.m); };
@@ -268,32 +268,22 @@ async function openRw(id) {
   catch (e) { hideToast(); toast('تعذّر تنزيل المصحف، تحقق من الاتصال'); }
 }
 
-function sheetIndex(tab = 'sura', q = '') {
-  let h = head('الفهرس') + '<div class="tabs"><button data-tab="sura" class="' + (tab === 'sura' ? 'on' : '') + '">السور</button><button data-tab="juz" class="' + (tab === 'juz' ? 'on' : '') + '">الأجزاء</button></div>';
-  h += '<div class="lst">';
-  if (tab === 'sura') {
-    h += '<input class="srch" id="srch" placeholder="اسم السورة أو رقمها" value="' + esc(q) + '">';
-    const qq = q.trim().replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c));
-    B.suras.forEach((s, i) => { if (qq && !(String(i + 1) === qq || s.name.includes(qq))) return;
-      h += '<button class="it" data-go="' + pageOfAyah(ayahIdx.get(i + 1 + ':1')) + '"><span class="no">' + ar(i + 1) + '</span><span><span class="nm">سُورَةُ ' + esc(s.name) + '</span><br><span class="mt">' + ar(s.ayahs) + ' آية (عدّ حفص)</span></span><span class="mt">ص ' + ar(pageOfAyah(ayahIdx.get(i + 1 + ':1'))) + '</span></button>'; });
-  } else {
-    B.juzStarts.forEach(([s, a], k) => { const p = pageOfAyah(ayahIdx.get(s + ':' + a)); h += '<button class="it" data-go="' + p + '"><span class="no">' + ar(k + 1) + '</span><span>الجزء ' + ar(k + 1) + '<br><span class="mt">سورة ' + esc(B.suras[s - 1].name) + ' · آية ' + ar(a) + '</span></span><span class="mt">ص ' + ar(p) + '</span></button>'; });
-  }
-  openSheet(h + '</div>');
-  const si = $('srch'); if (si) { si.oninput = () => { const v = si.value; sheetIndex('sura', v); const n = $('srch'); n.focus(); n.setSelectionRange(v.length, v.length); }; }
-}
-
-const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
+const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one'), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
 const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
 function sheetMenu() {
-  let h = head('القائمة');
+  const t = ACT[day()] || { r: [], m: [] };
+  let h = head('القائمة') + '<div class="mh"><div><b>الورد اليوم</b><span>' + ar(t.r.length) + ' صفحة · الختمة ' + ar(Math.round(KH.length / 6.04)) + '٪</span></div><button data-act="prog">التقدم</button><button data-act="marks">العلامات ' + ar(Object.keys(MK.marks).length) + '</button><button data-act="marks">الملاحظات ' + ar(Object.keys(MK.notes).length) + '</button></div>';
   h += '<div class="grp"><h3>المصحف</h3>' +
     '<label class="opt">إظهار ألوان الخلاف<input type="checkbox" data-set="col"' + (SET.col ? ' checked' : '') + '></label>' +
     '<label class="opt">تكبير الخط (يلتف النص مع الشاشة)<input type="checkbox" data-set="big"' + (SET.big ? ' checked' : '') + '></label>' +
     '<div class="opt"><span>ترتيب الأسطر (مصحف حفص)</span><select data-layout>' + [['v1', 'طبعة المجمع ١٤٠٥'], ['v2', 'طبعة المجمع ١٤٢١'], ['flow', 'نص يلتف مع الشاشة']].filter(([k]) => k === 'flow' || (B.lines && B.lines[k])).map(([k, n]) => '<option value="' + k + '"' + (SET.layout === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<div class="opt"><span>فتح نافذة الكلمة</span><select data-k="tap">' + [['one', 'نقرة واحدة'], ['long', 'ضغطة مطولة'], ['off', 'إيقاف']].map(([k, n]) => '<option value="' + k + '"' + (SET.tap === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<div class="opt"><span>المظهر</span><select data-k="theme">' + [['manual', 'حسب الخلفية'], ['auto', 'تلقائي (حسب الجوال)']].map(([k, n]) => '<option value="' + k + '"' + (SET.theme === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<label class="opt">تقليب الصفحة بلمس حافتي الشاشة<input type="checkbox" data-set="edge"' + (SET.edge ? ' checked' : '') + '></label>' +
+    '<div class="opt"><label style="display:flex;gap:8px;align-items:center">تقليب تلقائي<input type="checkbox" data-set="auto"' + (SET.auto ? ' checked' : '') + '></label><span>كل <select data-k="autoSec">' + [20, 30, 45, 60, 90, 120].map((n) => '<option value="' + n + '"' + (SET.autoSec == n ? ' selected' : '') + '>' + ar(n) + '</option>').join('') + '</select> ثانية</span></div>' +
     '<label class="opt">إبقاء الشاشة مضيئة<input type="checkbox" data-set="wake"' + (SET.wake ? ' checked' : '') + '></label>' +
     '<div class="opt"><span>لون الخلفية</span><span class="sw">' + BGS.map(([k, c, n]) => '<button aria-label="' + n + '" data-bg="' + k + '" class="' + (SET.bg === k ? 'on' : '') + '" style="background:' + c + '"></button>').join('') + '</span></div></div>';
   if (RWV.mushaf !== 'base' && M.legend) {
@@ -314,11 +304,12 @@ $('sheet').addEventListener('click', (e) => {
   const mg = t.closest('[data-mkgo]'); if (mg) { const [rw, p] = mg.dataset.mkgo.split(':'); closeSheet(); st.page = +p; if (rw !== RWV.id) return openRw(rw); return go(+p); }
   if (t.closest('[data-khreset]')) { KH = []; LS.set('khatma', KH); return sheetProgress(); }
   const tb = t.closest('[data-tab]'); if (tb) return sheetIndex(tb.dataset.tab);
+  const rg = t.closest('[data-rwgo]'); if (rg && rg.dataset.rwgo !== RWV.id) { st.page = +rg.dataset.go; closeSheet(); return openRw(rg.dataset.rwgo); }
   const g = t.closest('[data-go]'); if (g) { closeSheet(); if (st.mode === 'tj') { st.page = +g.dataset.go; render(); scrollTo(0, 0); } else go(+g.dataset.go); return; }
   const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
   const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); closeSheet(); setMode(k); }
 });
-$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
+$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
 $('prev').onclick = () => go(st.page - 1); $('next').onclick = () => go(st.page + 1);
 $('pnum').onchange = (e) => { const n = parseInt(e.target.value.replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c))); if (n) go(n); };
@@ -395,13 +386,14 @@ function openUsul() { let h = '<h2 style="font-family:AM;font-size:22px;color:#1
 function openQUsul() { const md = (t) => t.split(/\n\n+/).map((b) => (b.startsWith('## ') ? '<h4>' + esc(b.slice(3)) + '</h4>' : b.startsWith('# ') ? '<h4>' + esc(b.slice(2)) + '</h4>' : '<p>' + esc(b).replace(/\n/g, '<br>') + '</p>')).join(''); showPop(M.usul.map(md).join('') + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 document.addEventListener('click', (ev) => {
   const t = ev.target; if (pop.contains(t) || $('sheet').contains(t)) return;
-  const w = t.closest('.v,.u'); if (w) { openWord(w); return; }
+  const w = t.closest('.v,.u'); if (w) { if (SET.tap === 'one') openWord(w); return; }
   if (t.id === 'usb') return openUsul(); if (t.id === 'qusb') return openQUsul();
   const hd = t.closest('.hid'); if (hd) { reveal(hd.dataset.k); return; }
   if (pop.classList.contains('show') && !t.closest('#scrim')) { closePop(); ev.stopPropagation(); }
   else if (t.closest('#pages') && st.mode !== 'tj' && !t.closest('button,a,input,.hd')) document.body.classList.toggle('zen');
 }, true);
 document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.key === 'ArrowLeft') go(st.page + 1); if (e.key === 'ArrowRight') go(st.page - 1); if (e.key === 'Escape') { closePop(); closeSheet(); } });
+let lpT; document.addEventListener('touchstart', (e) => { const w = e.target.closest && e.target.closest('.v,.u'); if (w && SET.tap === 'long') lpT = setTimeout(() => openWord(w), 500); }, { passive: true }); document.addEventListener('touchend', () => clearTimeout(lpT), { passive: true });
 // سحب الصفحة يمينًا ويسارًا للتقليب (في القراءة والتسميع)
 let tx0 = null; document.addEventListener('touchstart', (e) => { tx0 = st.mode === 'tj' || $('sheet').classList.contains('show') ? null : [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
 document.addEventListener('touchend', (e) => { if (!tx0) return; const dx = e.changedTouches[0].clientX - tx0[0], dy = e.changedTouches[0].clientY - tx0[1]; if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) go(st.page + (dx > 0 ? 1 : -1)); tx0 = null; }, { passive: true });
@@ -466,7 +458,7 @@ function sheetProgress() {
   h += '<button class="btn" data-act="mem" style="width:100%">ابدأ التسميع</button>';
   openSheet(h);
 }
-$('sheet').addEventListener('change', (e) => { if (e.target.hasAttribute('data-font')) { SET.font = e.target.value; LS.set('font', SET.font); applySet(); render(); return; } if (e.target.hasAttribute('data-layout')) { SET.layout = e.target.value; LS.set('layout', SET.layout); edPages(); render(); return; } const g = e.target.dataset.goal; if (g) { GOAL[g] = +e.target.value; LS.set('goal', GOAL); sheetProgress(); } });
+$('sheet').addEventListener('change', (e) => { const dk = e.target.dataset.k; if (dk) { SET[dk] = dk === 'autoSec' ? +e.target.value : e.target.value; LS.set(dk, SET[dk]); if (dk === 'theme') { applySet(); autoTheme(); } autoFlip(); return; } if (e.target.hasAttribute('data-font')) { SET.font = e.target.value; LS.set('font', SET.font); applySet(); render(); return; } if (e.target.hasAttribute('data-layout')) { SET.layout = e.target.value; LS.set('layout', SET.layout); edPages(); render(); return; } const g = e.target.dataset.goal; if (g) { GOAL[g] = +e.target.value; LS.set('goal', GOAL); sheetProgress(); } });
 
 // ===== عن المصحف =====
 function sheetAbout() {
@@ -482,6 +474,44 @@ let wl = null;
 async function wake() { if (!SET.wake || !('wakeLock' in navigator) || document.hidden) return; try { wl = await navigator.wakeLock.request('screen'); } catch (e) {} }
 document.addEventListener('visibilitychange', wake);
 
+
+// ===== مميزات إضافية: آخر القراءة، الفهرس الكامل، التقليب التلقائي، اللمس =====
+let RECENT = LS.get('recent', []);
+function pushRecent() { const s = firstSura(st.page); RECENT = [{ p: st.page, s, rw: RWV.id }].concat(RECENT.filter((x) => !(x.p === st.page && x.rw === RWV.id))).slice(0, 6); LS.set('recent', RECENT); }
+function sheetIndex(tab = 'sura', q = '') {
+  const T = [['sura', 'السور'], ['juz', 'الأجزاء'], ['hizb', 'الأحزاب'], ['page', 'الصفحات']];
+  let h = head('الفهرس');
+  if (RECENT.length) h += '<div class="rec">' + RECENT.map((r) => '<button data-go="' + r.p + '" data-rwgo="' + r.rw + '"><b>' + esc(B.suras[r.s - 1].name) + '</b><span>ص ' + ar(r.p) + ' · ' + esc((RWS.get(r.rw) || {}).n || '') + '</span></button>').join('') + '</div>';
+  h += '<div class="tabs t4">' + T.map(([k, n]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div class="lst">';
+  const pg = (s, a) => pageOfAyah(ayahIdx.get(s + ':' + a));
+  if (tab === 'sura') {
+    h += '<input class="srch" id="srch" placeholder="اسم السورة أو رقمها أو مكية/مدنية" value="' + esc(q) + '">';
+    const qq = q.trim().replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c));
+    B.suras.forEach((s, i) => { if (qq && !(String(i + 1) === qq || s.name.includes(qq) || (s.t || '').includes(qq))) return; const p = pg(i + 1, 1);
+      h += '<button class="it" data-go="' + p + '"><span class="no">' + ar(i + 1) + '</span><span><span class="nm sn">سُورَةُ ' + esc(s.name) + '</span><br><span class="mt">' + esc(s.t || '') + ' · ' + ar(s.ayahs) + ' آية</span></span><span class="mt">ص ' + ar(p) + '</span></button>'; });
+  } else if (tab === 'juz') {
+    B.juzStarts.forEach(([s, a], k) => { const p = pg(s, a); h += '<button class="it" data-go="' + p + '"><span class="no">' + ar(k + 1) + '</span><span>الجزء ' + ar(k + 1) + '<br><span class="mt">' + esc(B.suras[s - 1].name) + ' · آية ' + ar(a) + '</span></span><span class="mt">ص ' + ar(p) + '</span></button>'; });
+  } else if (tab === 'hizb') {
+    (B.hizbQ || []).forEach(([s, a], k) => { const p = pg(s, a), q4 = k % 4; h += '<button class="it" data-go="' + p + '"><span class="no">' + ar(Math.floor(k / 4) + 1) + '</span><span>' + ['الحزب ' + ar(Math.floor(k / 4) + 1), 'ربع الحزب', 'نصف الحزب', 'ثلاثة أرباع الحزب'][q4] + '<br><span class="mt">' + esc(B.suras[s - 1].name) + ' · آية ' + ar(a) + '</span></span><span class="mt">ص ' + ar(p) + '</span></button>'; });
+  } else {
+    h += '<div class="pgrid">'; for (let p = 1; p <= 604; p++) h += '<button data-go="' + p + '">' + ar(p) + '</button>'; h += '</div>';
+  }
+  openSheet(h + '</div>');
+  const si = $('srch'); if (si) { si.oninput = () => { const v = si.value; sheetIndex('sura', v); const n = $('srch'); n.focus(); n.setSelectionRange(v.length, v.length); }; }
+}
+// التقليب التلقائي
+let autoT = null;
+function autoFlip() { clearInterval(autoT); autoT = null; if (SET.auto && st.mode === 'show') autoT = setInterval(() => { if (!$('sheet').classList.contains('show') && !pop.classList.contains('show')) go(st.page + 1); }, SET.autoSec * 1000); }
+// لمس حافتي الشاشة
+document.addEventListener('click', (e) => {
+  if (!SET.edge || st.mode === 'tj' || !e.target.closest('#pages') || e.target.closest('.v,.u,button,a,.hid')) return;
+  const x = e.clientX, W = innerWidth;
+  if (x > W * 0.85) { e.stopImmediatePropagation(); go(st.page - 1); } else if (x < W * 0.15) { e.stopImmediatePropagation(); go(st.page + 1); }
+}, true);
+// المظهر التلقائي
+function autoTheme() { if (SET.theme === 'auto') { const d = matchMedia('(prefers-color-scheme: dark)').matches; document.body.classList.toggle('bg-night', d); } }
+matchMedia('(prefers-color-scheme: dark)').addEventListener && matchMedia('(prefers-color-scheme: dark)').addEventListener('change', autoTheme);
+
 // ===== البدء: حفص دائمًا عند الفتح =====
 (async () => {
   applySet();
@@ -494,7 +524,7 @@ document.addEventListener('visibilitychange', wake);
     const hp = location.hash.match(/page=(\d+)/); if (hp) st.page = +hp[1];
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;
     const hr = location.hash.match(/rw=([\w-]+)/); if (hr && RWS.get(hr[1])?.status === 'ready') { await openRw(hr[1]); return; }
-    render(); wake();
+    render(); wake(); autoTheme();
   } catch (e) { $('pages').innerHTML = '<div class="pg"><div class="in"><p class="ld">تعذّر تحميل المصحف. تحقق من الاتصال ثم أعد فتح الصفحة.</p></div></div>'; }
 })();
 window.__app = { st, go, setMode, openRw };
