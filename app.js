@@ -425,7 +425,7 @@ function sheetSearch(q = '') {
   const si = $('sq'); si.focus(); si.setSelectionRange(q.length, q.length);
   let tmr; si.oninput = () => { clearTimeout(tmr); tmr = setTimeout(() => sheetSearch(si.value), 350); };
 }
-$('bSearch').onclick = () => sheetSearch();
+
 
 // ===== العلامات والملاحظات (على الجهاز) =====
 const MK = { marks: LS.get('marks', {}), notes: LS.get('notes', {}) }; // المفتاح: الرواية:الصفحة
