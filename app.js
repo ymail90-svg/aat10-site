@@ -6,7 +6,7 @@ const $ = (id) => document.getElementById(id);
 const ar = (n) => String(n).replace(/\d/g, (c) => '٠١٢٣٤٥٦٧٨٩'[c]);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MARK = /^[ۖ-ۜ۞۩]+$/u, QM = /^[ۖ-ۭ۞۩]+$/u;
-const qd = (t) => t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ(?=[\u06D6-\u06ED]*$)/g, 'ࣰ').replace(/ٖ(?=[\u06D6-\u06ED]*$)/g, 'ࣲ');
+const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ(?=[\u06D6-\u06ED]*$)/g, 'ࣰ').replace(/ٖ(?=[\u06D6-\u06ED]*$)/g, 'ࣲ'); return (typeof SET !== 'undefined' && SET.openTan) ? t : t.replace(/ࣰ/g, 'ً').replace(/ࣱ/g, 'ٌ').replace(/ࣲ/g, 'ٍ'); };
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 const CACHE = 'q10-data-v1';
@@ -268,7 +268,7 @@ async function openRw(id) {
   catch (e) { hideToast(); toast('تعذّر تنزيل المصحف، تحقق من الاتصال'); }
 }
 
-const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), tips: LS.get('tips', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
+const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), tips: LS.get('tips', true), openTan: LS.get('openTan', false), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
 const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
@@ -282,6 +282,7 @@ function sheetMenu() {
     '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div class="opt"><span>فتح نافذة الكلمة</span><select data-k="tap">' + [['one', 'نقرة واحدة'], ['long', 'ضغطة مطولة'], ['off', 'إيقاف']].map(([k, n]) => '<option value="' + k + '"' + (SET.tap === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div class="opt"><span>المظهر</span><select data-k="theme">' + [['manual', 'حسب الخلفية'], ['auto', 'تلقائي (حسب الجوال)']].map(([k, n]) => '<option value="' + k + '"' + (SET.theme === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<label class="opt">التنوين المتتابع كما في المطبوع (يحتاج خطًا يدعمه)<input type="checkbox" data-set="openTan"' + (SET.openTan ? ' checked' : '') + '></label>' +
     '<label class="opt">تنبيه عند بداية الحزب وأرباعه<input type="checkbox" data-set="qAlert"' + (SET.qAlert ? ' checked' : '') + '></label>' +
     '<label class="opt">نصيحة يومية<input type="checkbox" data-set="tips"' + (SET.tips ? ' checked' : '') + '></label>' +
     '<label class="opt">تقليب الصفحة بلمس حافتي الشاشة<input type="checkbox" data-set="edge"' + (SET.edge ? ' checked' : '') + '></label>' +
@@ -311,7 +312,7 @@ $('sheet').addEventListener('click', (e) => {
   const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
   const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
-$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
+$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
 $('prev').onclick = () => go(st.page - 1); $('next').onclick = () => go(st.page + 1);
 $('pnum').onchange = (e) => { const n = parseInt(e.target.value.replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c))); if (n) go(n); };
