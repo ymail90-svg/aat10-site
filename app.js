@@ -238,9 +238,10 @@ function hideToast() { $('toast').classList.remove('show'); }
 
 // ===== النوافذ السفلية =====
 function openSheet(html) { closePop(); $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('show'); $('scrim').classList.add('show'); $('sheet').scrollTop = 0; }
-function closeSheet() { $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); }
+function closeSheet() { sheetBack = null; $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); }
 $('scrim').onclick = () => { closeSheet(); closePop(); };
-const head = (t) => '<div class="sh"><h2>' + t + '</h2><button class="x" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
+let sheetBack = null;
+const head = (t) => '<div class="sh">' + (sheetBack ? '<button class="x bk" data-back aria-label="رجوع"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>رجوع</button>' : '') + '<h2>' + t + '</h2><button class="x" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
 
 async function sheetRiwayat() {
   let h = head('اختر المصحف') + '<p class="note">يفتح التطبيق دائمًا على مصحف حفص. الروايات الأخرى ملوّنة بمواضع خلافها، وتُنزَّل مرة واحدة ثم تعمل دون اتصال.</p>';
@@ -272,7 +273,7 @@ const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('b
 const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
-function sheetMenu() {
+function sheetMenu() { sheetBack = null;
   const t = ACT[day()] || { r: [], m: [] };
   let h = head('القائمة') + '<div class="mh"><div><b>الورد اليوم</b><span>' + ar(t.r.length) + ' صفحة · الختمة ' + ar(Math.round(KH.length / 6.04)) + '٪</span></div><button data-act="prog">التقدم</button><button data-act="marks">العلامات ' + ar(Object.keys(MK.marks).length) + '</button><button data-act="marks">الملاحظات ' + ar(Object.keys(MK.notes).length) + '</button></div>';
   h += '<div class="grp"><h3>المصحف</h3>' +
@@ -300,6 +301,7 @@ function sheetMenu() {
 $('sheet').addEventListener('click', (e) => {
   const t = e.target;
   if (t.closest('[data-close]')) return closeSheet();
+  if (t.closest('[data-back]')) { const f = sheetBack; sheetBack = null; return f(); }
   const rw = t.closest('[data-rw]'); if (rw) return openRw(rw.dataset.rw);
   if (t.closest('[data-dlall]')) return downloadAll();
   if (t.closest('[data-mk]')) { const k = mkKey(); if (MK.marks[k]) delete MK.marks[k]; else MK.marks[k] = Date.now(); LS.set('marks', MK.marks); markUI(); return sheetMarks(); }
@@ -310,7 +312,7 @@ $('sheet').addEventListener('click', (e) => {
   const rg = t.closest('[data-rwgo]'); if (rg && rg.dataset.rwgo !== RWV.id) { st.page = +rg.dataset.go; closeSheet(); return openRw(rg.dataset.rwgo); }
   const g = t.closest('[data-go]'); if (g) { closeSheet(); if (st.mode === 'tj') { st.page = +g.dataset.go; render(); scrollTo(0, 0); } else go(+g.dataset.go); return; }
   const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
-  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
+  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if ($('sheet').querySelector('.mh')) sheetBack = sheetMenu; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
 $('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
