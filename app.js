@@ -7,7 +7,7 @@ const ar = (n) => String(n).replace(/\d/g, (c) => '٠١٢٣٤٥٦٧٨٩'[c]);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MARK = /^[ۖ-ۜ۞۩]+$/u, QM = /^[ۖ-ۭ۞۩]+$/u;
 const qd = (t) => t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ');
-const ayn = (a) => (SET.font === 'AQ' ? '\u06DD' + ar(a) : '<span class="nb">' + ar(a) + '</span>');
+const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 const CACHE = 'q10-data-v1';
 
