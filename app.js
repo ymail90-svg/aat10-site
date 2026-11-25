@@ -92,7 +92,7 @@ function pageM(p) {
     const [s, a, t] = M.ayahs[i]; const key = s + ':' + a; let w = qStart[i]; const toks = t.split(' ');
     let nw = 0; for (const tk of toks) if (!QM.test(tk)) nw++;
     const endsHere = qStart[i] + nw <= to;
-    if (a === 1 && w >= from) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>'; if (s !== 9 && M.bsm) h += '<div class="bsm">' + esc(M.bsm) + '</div>'; }
+    if (a === 1 && w >= from) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>'; if (s !== 9 && M.bsm && !(s === 1 && M.fatihaBsm)) h += '<div class="bsm">' + esc(M.bsm) + '</div>'; }
     const hidden = isHidden(key), parts = [];
     for (const tk of toks) {
       if (QM.test(tk)) { if (w >= from && w < to) parts.push(esc(qd(tk))); continue; }

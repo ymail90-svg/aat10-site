@@ -1,0 +1,218 @@
+{
+ "about": "سجل الروايات: لإضافة رواية ضع ملف مصحفها في data/m/ واجعل status لها ready. plain: مصحف مستقل بلا توجيهات القراءات. extra: مصاحف جامعة (مصحف القراءات العشر).",
+ "home": "hafs",
+ "qurra": [
+  {
+   "q": "نافع",
+   "r": [
+    {
+     "id": "qalun",
+     "n": "قالون",
+     "mushaf": "sila",
+     "focus": null,
+     "title": "رواية قالون عن نافع",
+     "status": "ready"
+    },
+    {
+     "id": "warsh",
+     "n": "ورش",
+     "mushaf": "warsh",
+     "focus": null,
+     "title": "رواية ورش عن نافع",
+     "status": "ready"
+    }
+   ]
+  },
+  {
+   "q": "ابن كثير",
+   "r": [
+    {
+     "id": "bazzi",
+     "n": "البزي",
+     "mushaf": "sila",
+     "focus": [
+      "البزي",
+      "ابن كثير"
+     ],
+     "title": "مصحف أصحاب الصلة · هامش البزي",
+     "status": "ready"
+    },
+    {
+     "id": "qunbul",
+     "n": "قنبل",
+     "mushaf": "sila",
+     "focus": [
+      "قنبل",
+      "ابن كثير"
+     ],
+     "title": "مصحف أصحاب الصلة · هامش قنبل",
+     "status": "ready"
+    }
+   ]
+  },
+  {
+   "q": "أبو عمرو",
+   "r": [
+    {
+     "id": "duri-abuamr",
+     "n": "الدوري",
+     "status": "soon"
+    },
+    {
+     "id": "susi",
+     "n": "السوسي",
+     "tag": "بالهامش",
+     "status": "soon"
+    }
+   ]
+  },
+  {
+   "q": "ابن عامر",
+   "r": [
+    {
+     "id": "hisham",
+     "n": "هشام",
+     "mushaf": "hisham",
+     "focus": null,
+     "title": "رواية هشام عن ابن عامر",
+     "status": "ready"
+    },
+    {
+     "id": "ibndhakwan",
+     "n": "ابن ذكوان",
+     "tag": "بالهامش",
+     "mushaf": "hisham",
+     "focus": [
+      "ابن ذكوان",
+      "ابن عامر"
+     ],
+     "title": "مصحف ابن عامر · هامش ابن ذكوان",
+     "status": "ready"
+    }
+   ]
+  },
+  {
+   "q": "عاصم",
+   "r": [
+    {
+     "id": "shuba",
+     "n": "شعبة",
+     "status": "ready",
+     "mushaf": "shuba",
+     "focus": null,
+     "title": "رواية شعبة عن عاصم"
+    },
+    {
+     "id": "hafs",
+     "n": "حفص",
+     "tag": "الأصل",
+     "mushaf": "base",
+     "title": "رواية حفص عن عاصم",
+     "status": "ready",
+     "plain": true
+    }
+   ]
+  },
+  {
+   "q": "حمزة",
+   "r": [
+    {
+     "id": "khalaf-hamza",
+     "n": "خلف",
+     "status": "soon"
+    },
+    {
+     "id": "khallad",
+     "n": "خلاد",
+     "tag": "بالهامش",
+     "status": "soon"
+    }
+   ]
+  },
+  {
+   "q": "الكسائي",
+   "r": [
+    {
+     "id": "abulharith",
+     "n": "أبو الحارث",
+     "status": "soon"
+    },
+    {
+     "id": "duri-kisai",
+     "n": "الدوري",
+     "tag": "بالهامش",
+     "status": "soon"
+    }
+   ]
+  },
+  {
+   "q": "أبو جعفر",
+   "r": [
+    {
+     "id": "ibnwardan",
+     "n": "ابن وردان",
+     "mushaf": "sila",
+     "focus": [
+      "ابن وردان",
+      "أبو جعفر"
+     ],
+     "title": "مصحف أصحاب الصلة · هامش ابن وردان",
+     "status": "ready"
+    },
+    {
+     "id": "ibnjammaz",
+     "n": "ابن جماز",
+     "mushaf": "sila",
+     "focus": [
+      "ابن جماز",
+      "أبو جعفر"
+     ],
+     "title": "مصحف أصحاب الصلة · هامش ابن جماز",
+     "status": "ready"
+    }
+   ]
+  },
+  {
+   "q": "يعقوب",
+   "r": [
+    {
+     "id": "ruways",
+     "n": "رويس",
+     "status": "soon"
+    },
+    {
+     "id": "rawh",
+     "n": "روح",
+     "tag": "بالهامش",
+     "status": "soon"
+    }
+   ]
+  },
+  {
+   "q": "خلف العاشر",
+   "r": [
+    {
+     "id": "ishaq",
+     "n": "إسحاق",
+     "status": "soon"
+    },
+    {
+     "id": "idris",
+     "n": "إدريس",
+     "tag": "بالهامش",
+     "status": "soon"
+    }
+   ]
+  }
+ ],
+ "extra": [
+  {
+   "id": "ashr",
+   "n": "القراءات العشر",
+   "mushaf": "base",
+   "title": "مصحف القراءات العشر (حفص وعليه الخلاف)",
+   "status": "ready",
+   "desc": "نص حفص ومواضع خلاف القراء العشرة ملوّنة، وفي نافذة كل كلمة أوجه القراء."
+  }
+ ]
+}

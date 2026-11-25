@@ -97,8 +97,10 @@
     {
      "id": "shuba",
      "n": "شعبة",
-     "tag": "بالهامش",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "shuba",
+     "focus": null,
+     "title": "رواية شعبة عن عاصم"
     },
     {
      "id": "hafs",
