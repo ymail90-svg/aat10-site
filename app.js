@@ -183,7 +183,7 @@ function render() {
   const usul = RWV.plain ? '' : RWV.mushaf === 'base' ? (B.usul[st.page] ? '<button class="usb" id="usb">أصول الصفحة</button>' : '') : (M.usul && M.usul.length ? '<button class="usb" id="qusb">' + esc(M.usulTitle || 'تعريف المصحف') + '</button>' : '');
   const foot = RWV.plain ? 'النص: مشروع تنزيل tanzil.net (رواية حفص عن عاصم)' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل tanzil.net · الفرش: مصحف الراجح (الشاطبية والدرة)' : M.foot || '';
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
-  LS.set('page', st.page); track(); markUI(); pushRecent();
+  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage();
 }
 function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 
@@ -268,7 +268,7 @@ async function openRw(id) {
   catch (e) { hideToast(); toast('تعذّر تنزيل المصحف، تحقق من الاتصال'); }
 }
 
-const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one'), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
+const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), tips: LS.get('tips', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
 const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
@@ -282,6 +282,8 @@ function sheetMenu() {
     '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div class="opt"><span>فتح نافذة الكلمة</span><select data-k="tap">' + [['one', 'نقرة واحدة'], ['long', 'ضغطة مطولة'], ['off', 'إيقاف']].map(([k, n]) => '<option value="' + k + '"' + (SET.tap === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div class="opt"><span>المظهر</span><select data-k="theme">' + [['manual', 'حسب الخلفية'], ['auto', 'تلقائي (حسب الجوال)']].map(([k, n]) => '<option value="' + k + '"' + (SET.theme === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<label class="opt">تنبيه عند بداية الحزب وأرباعه<input type="checkbox" data-set="qAlert"' + (SET.qAlert ? ' checked' : '') + '></label>' +
+    '<label class="opt">نصيحة يومية<input type="checkbox" data-set="tips"' + (SET.tips ? ' checked' : '') + '></label>' +
     '<label class="opt">تقليب الصفحة بلمس حافتي الشاشة<input type="checkbox" data-set="edge"' + (SET.edge ? ' checked' : '') + '></label>' +
     '<div class="opt"><label style="display:flex;gap:8px;align-items:center">تقليب تلقائي<input type="checkbox" data-set="auto"' + (SET.auto ? ' checked' : '') + '></label><span>كل <select data-k="autoSec">' + [20, 30, 45, 60, 90, 120].map((n) => '<option value="' + n + '"' + (SET.autoSec == n ? ' selected' : '') + '>' + ar(n) + '</option>').join('') + '</select> ثانية</span></div>' +
     '<label class="opt">إبقاء الشاشة مضيئة<input type="checkbox" data-set="wake"' + (SET.wake ? ' checked' : '') + '></label>' +
@@ -290,7 +292,7 @@ function sheetMenu() {
     const C = { m: '#c000c0', b: '#1747c9', r: '#e00000', c: '#00a3cc', g: '#1a9e1a', l: '#3366ff', o: '#e06400', y: '#7a9e00', n: '#c000c0' };
     h += '<div class="grp"><h3>مفتاح الألوان · ' + esc(RWV.n) + '</h3><div class="legend">' + Object.entries(M.legend).map(([k, t]) => '<span><i style="background:' + (C[k] || '#888') + '"></i>' + esc(t.split(':')[0]) + '</span>').join('') + '</div></div>';
   }
-  h += '<div class="grp"><h3>التنقل</h3><button class="opt" data-act="rw">الروايات وتنزيلها</button><button class="opt" data-act="idx">الفهرس</button><button class="opt" data-act="search">البحث</button><button class="opt" data-act="marks">العلامات والملاحظات</button><button class="opt" data-act="prog">الحفظ والنشاط</button><button class="opt" data-act="tj">وضع التهجد</button><button class="opt" data-act="mem">التسميع</button><button class="opt" data-act="about">عن المصحف</button></div>';
+  h += '<div class="grp"><h3>التنقل</h3><button class="opt" data-act="rw">الروايات وتنزيلها</button><button class="opt" data-act="idx">الفهرس</button><button class="opt" data-act="search">البحث</button><button class="opt" data-act="marks">العلامات والملاحظات</button><button class="opt" data-act="prog">الحفظ والنشاط</button><button class="opt" data-act="tj">وضع التهجد</button><button class="opt" data-act="mem">التسميع</button><button class="opt" data-act="mushafs">المصاحف</button><button class="opt" data-act="about">عن المصحف</button><button class="opt" data-act="news">ما الجديد</button></div>';
   h += '<div class="grp"><h3>عن المصحف</h3><div class="opt" style="display:block;line-height:1.8;font-size:14px">' + esc(RWV.title) + ' — النص كما رُسم في مصدره دون تغيير، والألوان كما في مفتاحه. البيانات مسودة لم تعتمدها اللجنة العلمية بعد.<br><span class="mt">' + esc(RWV.plain ? 'النص: مشروع تنزيل' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل · الفرش: مصحف الراجح' : M.foot || '') + '</span></div></div>';
   openSheet(h);
 }
@@ -307,7 +309,7 @@ $('sheet').addEventListener('click', (e) => {
   const rg = t.closest('[data-rwgo]'); if (rg && rg.dataset.rwgo !== RWV.id) { st.page = +rg.dataset.go; closeSheet(); return openRw(rg.dataset.rwgo); }
   const g = t.closest('[data-go]'); if (g) { closeSheet(); if (st.mode === 'tj') { st.page = +g.dataset.go; render(); scrollTo(0, 0); } else go(+g.dataset.go); return; }
   const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
-  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); closeSheet(); setMode(k); }
+  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
 $('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k, SET[k]); applySet(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
@@ -482,7 +484,7 @@ function sheetIndex(tab = 'sura', q = '') {
   const T = [['sura', 'السور'], ['juz', 'الأجزاء'], ['hizb', 'الأحزاب'], ['page', 'الصفحات']];
   let h = head('الفهرس');
   if (RECENT.length) h += '<div class="rec">' + RECENT.map((r) => '<button data-go="' + r.p + '" data-rwgo="' + r.rw + '"><b>' + esc(B.suras[r.s - 1].name) + '</b><span>ص ' + ar(r.p) + ' · ' + esc((RWS.get(r.rw) || {}).n || '') + '</span></button>').join('') + '</div>';
-  h += '<div class="tabs t4">' + T.map(([k, n]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div class="lst">';
+  h += jumpJuz() + '<div class="tabs t4">' + T.map(([k, n]) => '<button data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div><div class="lst">';
   const pg = (s, a) => pageOfAyah(ayahIdx.get(s + ':' + a));
   if (tab === 'sura') {
     h += '<input class="srch" id="srch" placeholder="اسم السورة أو رقمها أو مكية/مدنية" value="' + esc(q) + '">';
@@ -512,6 +514,40 @@ document.addEventListener('click', (e) => {
 function autoTheme() { if (SET.theme === 'auto') { const d = matchMedia('(prefers-color-scheme: dark)').matches; document.body.classList.toggle('bg-night', d); } }
 matchMedia('(prefers-color-scheme: dark)').addEventListener && matchMedia('(prefers-color-scheme: dark)').addEventListener('change', autoTheme);
 
+
+// ===== الأرباع، الأجزاء الجانبية، المصاحف، ما الجديد، نصيحة اليوم =====
+function quartersOn(p) { // أرباع الأحزاب التي تبدأ في هذه الصفحة (حسب طبعة حفص)
+  const out = []; (B.hizbQ || []).forEach(([s, a], k) => { if (pageOfAyah(ayahIdx.get(s + ':' + a)) === p) out.push(k); }); return out;
+}
+const qName = (k) => (k % 4 === 0 ? 'الحزب ' + ar(k / 4 + 1) : ['', 'ربع', 'نصف', 'ثلاثة أرباع'][k % 4] + ' الحزب ' + ar(Math.floor(k / 4) + 1));
+function decoratePage() {
+  const hd = document.querySelector('#page .hd'); if (!hd) return;
+  const q = RWV.mushaf === 'base' || RWV.plain ? quartersOn(st.page) : [];
+  if (q.length) { const s = document.createElement('span'); s.className = 'qtr'; s.textContent = '۞ ' + q.map(qName).join(' · '); hd.appendChild(s); if (SET.qAlert) toast('بداية ' + qName(q[0])); }
+  document.querySelector('#page').classList.toggle('marked', !!MK.marks[mkKey()]);
+}
+const NEWS = [
+  ['٢٥ نوفمبر ٢٠٢٦', 'أسطر طبعة المجمع ١٤٢١ و١٤٠٥ لمصحف حفص، وفهرس السور والأجزاء والأحزاب، والتقليب التلقائي، وإعدادات اللمس.'],
+  ['٢٥ نوفمبر ٢٠٢٦', 'هامش مصحف ورش المطبوع كاملًا (٦٠٤ صفحة)، ووضع التهجد، والتسميع، والعلامات والملاحظات، والبحث.'],
+  ['٢٤ نوفمبر ٢٠٢٦', 'مصحف ورش عن نافع، ومصحف ابن عامر (هشام وفي هامشه ابن ذكوان).'],
+];
+const TIPS = ['المس الصفحة مرة لتختفي الأزرار وتبقى صفحة المصحف وحدها.', 'المس الكلمة الملوّنة لترى حكمها وهامش المطبوع.', 'في التسميع: «أظهر الآية التالية» يكشف الآيات واحدة واحدة.', 'من القائمة تختار طبعة المجمع ١٤٢١ أو ١٤٠٥ أو النص الملتف.', 'وضع التهجد يمرّر الصفحات تلقائيًا بالسرعة التي تختارها.', 'الروايات تُنزَّل مرة واحدة ثم تعمل دون اتصال.'];
+function dailyTip() { const d = day(); if (!SET.tips || LS.get('tipDay', '') === d) return; LS.set('tipDay', d); setTimeout(() => toast('هل تعلم؟ ' + TIPS[new Date().getDate() % TIPS.length], 5000), 1500); }
+function sheetNews() { openSheet(head('ما الجديد') + NEWS.map(([d, t]) => '<div class="grp"><h3>' + d + '</h3><div class="opt" style="display:block;line-height:1.9">' + esc(t) + '</div></div>').join('')); }
+async function sheetMushafs() {
+  const seen = new Set(); let h = head('المصاحف');
+  const all = [...(REG.extra || []).map((r) => ({ ...r })), ...[...RWS.values()].filter((r) => r.status === 'ready')];
+  for (const r of all) {
+    const key = r.mushaf + (r.plain ? '-p' : ''); if (seen.has(key) || r.id === 'ashr' && seen.has('base-x')) continue; seen.add(key); if (r.id === 'ashr') seen.add('base-x');
+    const saved = r.mushaf === 'base' || mushafCache[r.mushaf] || (await isSaved('data/m/' + r.mushaf + '.json'));
+    const src = r.mushaf === 'base' ? (r.plain ? 'نص مشروع تنزيل · أسطر طبعة المجمع' : 'نص تنزيل · الخلاف من مصحف الراجح (الشاطبية والدرة)') : r.mushaf === 'sila' ? 'نص قالون الرقمي (المجمع) · هامش مصحف أصحاب الصلة' : r.mushaf === 'warsh' ? 'ملف الشبكة الإسلامية · هامش مصحف ورش المطبوع (الأزرق)' : 'ملف الشبكة الإسلامية · هامش مصحف ابن عامر';
+    h += '<div class="mc"><div class="mct"><b>' + esc(r.mushaf === 'sila' ? 'مصحف أصحاب الصلة' : r.mushaf === 'hisham' ? 'مصحف ابن عامر' : r.title) + '</b><span class="tag">' + (saved ? 'محفوظ دون اتصال' : 'يُنزَّل عند الفتح') + '</span></div>' +
+      '<div class="mcs"><span><b>٦٠٤</b>صفحة</span><span><b>' + (r.mushaf === 'base' ? '١٥' : '—') + '</b>سطرًا</span><span><b>مسودة</b>الحالة</span></div><div class="mt">' + esc(src) + '</div><button class="btn" data-rw="' + r.id + '" style="margin-top:8px;width:100%">افتح</button></div>';
+  }
+  openSheet(h);
+}
+function jumpJuz() { let h = '<div class="jz">'; for (let k = 1; k <= 30; k++) { const [s, a] = B.juzStarts[k - 1]; h += '<button data-go="' + pageOfAyah(ayahIdx.get(s + ':' + a)) + '">' + ar(k) + '</button>'; } return h + '</div>'; }
+
 // ===== البدء: حفص دائمًا عند الفتح =====
 (async () => {
   applySet();
@@ -524,7 +560,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener && matchMedia('(pref
     const hp = location.hash.match(/page=(\d+)/); if (hp) st.page = +hp[1];
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;
     const hr = location.hash.match(/rw=([\w-]+)/); if (hr && RWS.get(hr[1])?.status === 'ready') { await openRw(hr[1]); return; }
-    render(); wake(); autoTheme();
+    render(); wake(); autoTheme(); dailyTip();
   } catch (e) { $('pages').innerHTML = '<div class="pg"><div class="in"><p class="ld">تعذّر تحميل المصحف. تحقق من الاتصال ثم أعد فتح الصفحة.</p></div></div>'; }
 })();
 window.__app = { st, go, setMode, openRw };
