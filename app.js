@@ -283,7 +283,7 @@ function sheetIndex(tab = 'sura', q = '') {
   const si = $('srch'); if (si) { si.oninput = () => { const v = si.value; sheetIndex('sura', v); const n = $('srch'); n.focus(); n.setSelectionRange(v.length, v.length); }; }
 }
 
-const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), font: LS.get('font', 'AQ') };
+const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
 const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
@@ -293,7 +293,7 @@ function sheetMenu() {
     '<label class="opt">إظهار ألوان الخلاف<input type="checkbox" data-set="col"' + (SET.col ? ' checked' : '') + '></label>' +
     '<label class="opt">تكبير الخط (يلتف النص مع الشاشة)<input type="checkbox" data-set="big"' + (SET.big ? ' checked' : '') + '></label>' +
     '<div class="opt"><span>ترتيب الأسطر (مصحف حفص)</span><select data-layout>' + [['v1', 'طبعة المجمع ١٤٠٥'], ['v2', 'طبعة المجمع ١٤٢١'], ['flow', 'نص يلتف مع الشاشة']].filter(([k]) => k === 'flow' || (B.lines && B.lines[k])).map(([k, n]) => '<option value="' + k + '"' + (SET.layout === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
-    '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AQ', 'أميري قرآن'], ['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<label class="opt">إبقاء الشاشة مضيئة<input type="checkbox" data-set="wake"' + (SET.wake ? ' checked' : '') + '></label>' +
     '<div class="opt"><span>لون الخلفية</span><span class="sw">' + BGS.map(([k, c, n]) => '<button aria-label="' + n + '" data-bg="' + k + '" class="' + (SET.bg === k ? 'on' : '') + '" style="background:' + c + '"></button>').join('') + '</span></div></div>';
   if (RWV.mushaf !== 'base' && M.legend) {
