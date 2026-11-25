@@ -101,7 +101,7 @@ function pageM(p) {
       const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
       const body = dots(qd(QSILA.has(w) ? tk.replace(/مْ?([ۖ-ۜ]*)$/u, 'مُۥ$1') : tk), mm);
       parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + body + '</span>'
-        : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr">' + body + '</span>' : body);
+        : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : body);
       w++;
     }
     const num = endsHere ? ' <span class="n">' + ayn(a) + '</span> ' : ' ';
@@ -363,7 +363,7 @@ function refreshOpen() {
 // ===== نافذة الكلمة =====
 const skel = (w) => String(w).replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[اٱأإآ]/g, '').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ة/g, 'ه').replace(/[ءئ]/g, '');
 function hl(text, word) { const k = skel(word); return esc(text).replace(/﴿([^﴾]+)﴾/g, (m, t) => (t.split(/\s*[،,]\s*/).some((p) => skel(p.replace(/\s+/g, '')) === k || p.split(/\s+/).some((q) => skel(q) === k)) ? '<b>﴿' + t + '﴾</b>' : m)); }
-function closePop() { pop.classList.remove('show'); pop.dataset.w = ''; document.querySelectorAll('.v.sel,.u.sel').forEach((e) => e.classList.remove('sel')); }
+function closePop() { pop.classList.remove('show'); pop.dataset.w = ''; document.querySelectorAll('.v.sel,.u.sel,.qr.sel').forEach((e) => e.classList.remove('sel')); }
 function showPop(h, w) { pop.innerHTML = '<div class="grab"></div>' + h; pop.dataset.w = w || ''; pop.classList.add('show'); pop.scrollTop = 0; }
 function openWord(el) {
   closePop();
@@ -389,6 +389,7 @@ function openUsul() { let h = '<h2 style="font-family:AM;font-size:22px;color:#1
 function openQUsul() { const md = (t) => t.split(/\n\n+/).map((b) => (b.startsWith('## ') ? '<h4>' + esc(b.slice(3)) + '</h4>' : b.startsWith('# ') ? '<h4>' + esc(b.slice(2)) + '</h4>' : '<p>' + esc(b).replace(/\n/g, '<br>') + '</p>')).join(''); showPop(M.usul.map(md).join('') + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 document.addEventListener('click', (ev) => {
   const t = ev.target; if (pop.contains(t) || $('sheet').contains(t)) return;
+  const qr = t.closest('.qr'); if (qr) { closePop(); qr.classList.add('sel'); const [s, a] = qr.dataset.k.split(':'); showPop('<h2>' + esc(qr.textContent) + '</h2><div class="ref">سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + '</div><div class="rd"><div class="who">' + esc(RWV.n) + '</div><div class="nt">الكلمة ملوّنة في المصحف المطبوع لمخالفتها رواية حفص، وليس عليها ملاحظة في الهامش.</div></div><div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); return; }
   const w = t.closest('.v,.u'); if (w) { if (SET.tap === 'one') openWord(w); return; }
   if (t.id === 'usb') return openUsul(); if (t.id === 'qusb') return openQUsul();
   const hd = t.closest('.hid'); if (hd) { reveal(hd.dataset.k); return; }
