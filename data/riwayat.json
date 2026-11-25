@@ -152,13 +152,21 @@
     {
      "id": "abulharith",
      "n": "أبو الحارث",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "kisai",
+     "title": "مصحف الكسائي · رواية أبي الحارث"
     },
     {
      "id": "duri-kisai",
      "n": "الدوري",
      "tag": "بالهامش",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "kisai",
+     "focus": [
+      "الدوري",
+      "الكسائي"
+     ],
+     "title": "مصحف الكسائي · هامش الدوري"
     }
    ]
   },
