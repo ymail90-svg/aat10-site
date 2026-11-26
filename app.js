@@ -53,6 +53,8 @@ function pageOfAyah(i) { let p = 1; for (let k = 0; k < 604; k++) if (pageFirst[
 let qStart = [], QCOL = new Set(), QSILA = new Set();
 function indexM() { QCOL = new Set(M.col || []); QSILA = new Set(M.sila || []); qStart = []; let w = 0; for (const [, , t] of M.ayahs) { qStart.push(w); for (const tk of t.split(' ')) if (!QM.test(tk)) w++; } }
 function qAyahAt(w) { let lo = 0, hi = qStart.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (qStart[m] <= w) lo = m; else hi = m - 1; } return lo; }
+// علامة السكت: «س» حمراء صغيرة فوق موضعه — لام التعريف أول الكلمة، أو «شيء» وسطها، وإلا آخر الكلمة (ساكن قبل همز)
+const skMark = (t) => '<i class="sk ' + (/^[وفبكل]?[ٱا]\S?ل[ْۡ]?[أإآءٔ]/u.test(t) ? 'skr' : /شَ?[ىي][ْۡ]?ء/u.test(t) ? 'skc' : 'skl') + '">س</i>';
 const isFocus = (ids) => { const f = RWV.focus; return !f || ids.some((i) => f.some((n) => M.sites[i].r.includes(n))); };
 
 function dots(tk, mm) {
@@ -102,7 +104,7 @@ function pageM(p) {
       const ss = M.ws[w];
       const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
       const body = dots(qd(QSILA.has(w) ? tk.replace(/مْ?([ۖ-ۜ]*)$/u, 'مُۥ$1') : tk), mm);
-      parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + body + '</span>'
+      parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + (M.cls && M.cls[w] === 's' ? skMark(tk) : '') + body + '</span>'
         : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : body);
       w++;
     }
