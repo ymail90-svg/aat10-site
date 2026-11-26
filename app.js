@@ -24,7 +24,7 @@ async function getJSON(url) {
   // سجل الروايات يُجلب من الشبكة أولًا ليظهر كل مصحف جديد، وعند انقطاع الاتصال من المحفوظ
   if (url === 'data/riwayat.json') { try { const r = await fetch(url, { cache: 'no-cache' }); if (r.ok) { try { await (await caches.open(CACHE)).put(url, r.clone()); } catch (e) {} return r.json(); } } catch (e) {} }
   try { if ('caches' in window) { const c = await caches.open(CACHE); const hit = await c.match(url); if (hit) return hit.json(); } } catch (e) {}
-  const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status);
+  const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(url + ' ' + r.status);
   try { if ('caches' in window) { const c = await caches.open(CACHE); await c.put(url, r.clone()); } } catch (e) {}
   return r.json();
 }
