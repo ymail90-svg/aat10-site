@@ -219,13 +219,23 @@
     {
      "id": "ishaq",
      "n": "إسحاق",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "khalaf10",
+     "focus": [
+      "خلف العاشر"
+     ],
+     "title": "قراءة خلف العاشر · نص حفص وبالهامش خلف"
     },
     {
      "id": "idris",
      "n": "إدريس",
      "tag": "بالهامش",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "khalaf10",
+     "focus": [
+      "خلف العاشر"
+     ],
+     "title": "قراءة خلف العاشر · نص حفص وبالهامش خلف"
     }
    ]
   }
