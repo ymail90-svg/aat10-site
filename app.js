@@ -9,7 +9,9 @@ const MARK = /^[ۖ-ۜ۞۩]+$/u, QM = /^[ۖ-ۭ۞۩]+$/u;
 const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ(?=[\u06D6-\u06ED]*$)/g, 'ࣰ').replace(/ٖ(?=[\u06D6-\u06ED]*$)/g, 'ࣲ'); return (typeof SET !== 'undefined' && SET.openTan) ? t : t.replace(/ࣰ/g, 'ً').replace(/ࣱ/g, 'ٌ').replace(/ࣲ/g, 'ٍ'); };
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
-const CACHE = 'q10-data-v1';
+// غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
+const CACHE = 'q10-data-v20';
+try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
 const RWS = new Map(); // id -> {q, ...}
