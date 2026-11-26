@@ -10,10 +10,10 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v21';
+const CACHE = 'q10-data-v22';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
-let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
+let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
 const RWS = new Map(); // id -> {q, ...}
 const st = { page: LS.get('page', 1), mode: 'show', revealed: new Set(), marks: new Map(), last: null, showAll: false };
 const isHidden = (key) => st.mode === 'mem' && !st.showAll && !st.revealed.has(key);
@@ -106,7 +106,7 @@ function pageM(p) {
       const ss = M.ws[w];
       const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
       const body = dots(qd(QSILA.has(w) ? tk.replace(/مْ?([ۖ-ۜ]*)$/u, 'مُۥ$1') : tk), mm);
-      parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + (M.sk && M.sk[w] != null ? '<i class="sk" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' : '') + body + '</span>'
+      parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + (M.sk && M.sk[w] != null && (RWV.id !== 'khallad' || skL.has(w)) ? '<i class="sk" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' : '') + body + '</span>'
         : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : body);
       w++;
     }
@@ -271,7 +271,7 @@ async function downloadAll() {
 }
 async function openRw(id) {
   const r = RWS.get(id); if (!r || r.status !== 'ready') return;
-  try { const m = await loadMushaf(r.mushaf); RWV = r; if (r.mushaf !== 'base') { M = m; indexM(); } LS.set('rw', id); closeSheet(); st.revealed.clear(); render(); }
+  try { const m = await loadMushaf(r.mushaf); RWV = r; if (r.mushaf !== 'base') { M = m; indexM(); skL = new Set(M.skL || []); } LS.set('rw', id); closeSheet(); st.revealed.clear(); render(); }
   catch (e) { hideToast(); toast('تعذّر تنزيل المصحف، تحقق من الاتصال'); }
 }
 
