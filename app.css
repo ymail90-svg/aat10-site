@@ -164,3 +164,6 @@ body.zen .pg{box-shadow:none}
 .qr{cursor:pointer;border-radius:8px}.qr.sel{background:#fdf0c8}
 .sh .bk{width:auto;display:flex;align-items:center;gap:2px;font-family:inherit;font-size:15px;padding:0 6px}.sh .bk svg{width:18px;height:18px}
 @media (min-width:800px){.pg{max-width:620px}.bot{justify-content:center;gap:24px}.memb,.below{max-width:620px}}
+
+/* الصفحتان الأوليان: النص في وسط الصفحة بأسطر متباعدة، والبسملة سطر مستقل */
+.open{min-height:68vh;display:flex;flex-direction:column;justify-content:space-evenly}.open .sur{margin-bottom:0}.open .tx{text-align:center;text-align-last:center;line-height:3.3;font-size:1.4em}.open .tx.bsm1{margin-bottom:.3em}
