@@ -142,7 +142,7 @@ textarea.nt{width:100%;min-height:80px;font-family:inherit;font-size:16px;border
 body.bg-night .ib2,body.bg-night .chip2{background:#1b2a23;color:#cfeee0}
 .hd{cursor:pointer}
 body.zen .modes,body.zen .bot,body.zen .below,body.zen .memb,body.zen .hd{display:none!important}body.zen .pg{border:0;box-shadow:none;margin-top:0}body.zen .in{border:0}
-.hb{border:1px solid var(--fr);background:var(--gt);color:var(--gd);border-radius:10px;min-height:34px;padding:0 10px;font-family:inherit;font-size:14px}.hd{cursor:default}
+button.hb{border:1px solid var(--fr);background:var(--gt);color:var(--gd);border-radius:10px;min-height:34px;padding:0 10px;font-family:inherit;font-size:14px}.hd{cursor:default}
 .modes button{font-size:14px}
 .pg{border:3px double #2e8b67;border-radius:10px;padding:5px;background:var(--pg);box-shadow:0 0 0 2px var(--pg),0 0 0 4px #7fc4a3,0 4px 16px #0b3a2518}
 .in{border:1.5px solid #7fc4a3;border-radius:6px;background:
