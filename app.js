@@ -67,16 +67,28 @@ const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k =
 const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
 function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
+// ===== الاستماع (تجربة لحفص): ملف لكل آية من everyayah.com، يتابع حتى آخر السورة ويظلّل رقم الآية الجارية =====
+const AUD = { a: new Audio(), k: null };
+const audUrl = (s, a) => 'https://everyayah.com/data/Alafasy_128kbps/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
+function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } }
+function audPlay(k) {
+  const [s, a] = k.split(':').map(Number); AUD.k = k; AUD.a.src = audUrl(s, a);
+  AUD.a.play().catch(() => { toast('تعذّر تشغيل الصوت'); audStop(); });
+  const p = pageOfAyah(ayahIdx.get(k)); if (p && p !== st.page) go(p); else audMark();
+}
+function audStop() { AUD.a.pause(); AUD.k = null; audMark(); }
+AUD.a.addEventListener('ended', () => { if (!AUD.k) return; const [s, a] = AUD.k.split(':').map(Number); if (a < B.suras[s - 1].ayahs) audPlay(s + ':' + (a + 1)); else audStop(); });
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
   e.stopPropagation(); const k = n.dataset.stop; const [s, a] = k.split(':').map(Number); const cur = stopAt(k);
-  let h = head('موقف عند سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)) + '<div class="grp"><h3>اختر نوع الموقف</h3>';
+  let h = head('موقف عند سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)) + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (تجربة: مشاري العفاسي، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '') + '<div class="grp"><h3>اختر نوع الموقف</h3>';
   for (const [id, nm] of SKINDS) h += '<button class="opt" data-setstop="' + id + '|' + k + '"><span><i class="sdot" style="background:' + sCol(id) + '"></i>' + nm + '</span><span class="mt">' + (STOPS[id] ? (cur === id ? 'هنا' : 'يُنقل إلى هنا') : '') + '</span></button>';
   if (cur) h += '<button class="opt" data-delstop="' + cur + '"><span>إزالة موقف «' + sName(cur) + '»</span></button>';
   sheetBack = null; openSheet(h + '</div>');
 }, true);
 $('sheet').addEventListener('click', (e) => {
   const t = e.target;
+  const pl = t.closest('[data-play]'); if (pl) { closeSheet(); return pl.dataset.play === 'stop' ? audStop() : audPlay(pl.dataset.play); }
   const ss = t.closest('[data-setstop]'); if (ss) { const [id, k] = ss.dataset.setstop.split('|'); STOPS[id] = { k, rw: RWV.id, p: st.page, t: Date.now() }; LS.set('stops', STOPS); closeSheet(); toast('حُفظ موقف «' + sName(id) + '»'); return render(); }
   const ds = t.closest('[data-delstop]'); if (ds) { delete STOPS[ds.dataset.delstop]; LS.set('stops', STOPS); closeSheet(); toast('أُزيل الموقف'); return render(); }
   const gs = t.closest('[data-gostop]'); if (gs) return goStop(gs.dataset.gostop);
@@ -225,7 +237,7 @@ function render() {
   const usul = RWV.plain ? '' : RWV.mushaf === 'base' ? (B.usul[st.page] ? '<button class="usb" id="usb">أصول الصفحة</button>' : '') : (M.usul && M.usul.length ? '<button class="usb" id="qusb">' + esc(M.usulTitle || 'تعريف المصحف') + '</button>' : '');
   const foot = RWV.plain ? 'النص: مشروع تنزيل tanzil.net (رواية حفص عن عاصم)' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل tanzil.net · الفرش: مصحف الراجح (الشاطبية والدرة)' : M.foot || '';
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
-  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage();
+  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); audMark();
 }
 function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 

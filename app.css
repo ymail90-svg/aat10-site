@@ -171,3 +171,4 @@ body.zen .pg{box-shadow:none}
 /* موقف القراءة */
 .n[data-stop]{cursor:pointer}.n.stp{color:#fff!important;border-radius:50%;box-shadow:0 0 0 3px rgba(192,57,43,.25)}#toast{pointer-events:auto}.stpgo{margin-inline-start:.5em;border:0;border-radius:8px;padding:.2em .7em;background:#1f7a5a;color:#fff;font:inherit}
 .sdot{display:inline-block;width:.8em;height:.8em;border-radius:50%;margin-inline-end:.4em;vertical-align:middle}.scol{width:28px;height:28px;border:0;padding:0;background:none;vertical-align:middle}
+.n.play{background:#f4d35e!important;color:#000;border-radius:50%;box-shadow:0 0 0 3px #f4d35e}
