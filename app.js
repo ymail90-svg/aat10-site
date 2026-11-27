@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v39';
+const CACHE = 'q10-data-v40';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -646,7 +646,7 @@ async function sheetMushafs() {
   for (const r of all) {
     const key = r.mushaf + (r.plain ? '-p' : ''); if (seen.has(key) || r.id === 'ashr' && seen.has('base-x')) continue; seen.add(key); if (r.id === 'ashr') seen.add('base-x');
     const saved = r.mushaf === 'base' || mushafCache[r.mushaf] || (await isSaved('data/m/' + r.mushaf + '.json'));
-    const src = r.mushaf === 'base' ? (r.plain ? 'نص مشروع تنزيل · أسطر طبعة المجمع' : 'نص تنزيل · الخلاف من مصحف الراجح (الشاطبية والدرة)') : r.mushaf === 'sila' ? 'نص قالون الرقمي (المجمع) · هامش مصحف أصحاب الصلة' : r.mushaf === 'warsh' ? 'ملف الشبكة الإسلامية · هامش مصحف ورش المطبوع (الأزرق)' : 'ملف الشبكة الإسلامية · هامش مصحف ابن عامر';
+    const src = r.mushaf === 'base' ? (r.plain ? 'نص مشروع تنزيل · أسطر طبعة المجمع' : 'نص تنزيل · الخلاف من مصحف الراجح (الشاطبية والدرة)') : r.mushaf === 'sila' ? 'نص قالون الرقمي (المجمع) · هامش مصحف أصحاب الصلة' : r.mushaf === 'warsh' ? 'هامش مصحف ورش المطبوع (الأزرق)' : r.mushaf === 'hisham' ? 'هامش مصحف ابن عامر' : '';
     h += '<div class="mc"><div class="mct"><b>' + esc(r.mushaf === 'sila' ? 'مصحف أصحاب الصلة' : r.mushaf === 'hisham' ? 'مصحف ابن عامر' : r.title) + '</b><span class="tag">' + (saved ? 'محفوظ دون اتصال' : 'يُنزَّل عند الفتح') + '</span></div>' +
       '<div class="mcs"><span><b>٦٠٤</b>صفحة</span><span><b>' + (r.mushaf === 'base' ? '١٥' : '—') + '</b>سطرًا</span><span><b>مسودة</b>الحالة</span></div><div class="mt">' + esc(src) + '</div><button class="btn" data-rw="' + r.id + '" style="margin-top:8px;width:100%">افتح</button></div>';
   }
