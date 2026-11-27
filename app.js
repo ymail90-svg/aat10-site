@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v44';
+const CACHE = 'q10-data-v45';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -65,10 +65,20 @@ const sCol = (id) => SCOL[id] || SKINDS.find((x) => x[0] === id)[2];
 const sName = (id) => SKINDS.find((x) => x[0] === id)[1];
 const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k === k && STOPS[id].rw === RWV.id);
 // ===== شواهد الشاطبية والدرّة على الآية (تجربة: الفاتحة) =====
-let SHD = null;
+const SHD = { verses: {}, ayat: {}, loc: {} }, SHJ = new Set();
+// شواهد كل جزء في ملف مستقل يُحمَّل عند الوصول إليه
+async function loadShw(j) {
+  if (!j || SHJ.has(j)) return; SHJ.add(j);
+  try {
+    const d = await getJSON('data/shawahid/j' + String(j).padStart(2, '0') + '.json');
+    Object.assign(SHD.verses, d.verses); Object.assign(SHD.ayat, d.ayat);
+    for (const [m, mp] of Object.entries(d.loc || {})) Object.assign(SHD.loc[m] ||= {}, mp);
+    if (B.juzByPage[st.page - 1] === j && st.mode === 'show' && !$('sheet').classList.contains('show') && !pop.classList.contains('show')) render();
+  } catch (e) { SHJ.delete(j); }
+}
 // مفاتيح الشواهد بالعدّ الكوفي؛ وفي المصاحف التي تعدّ بغيره تُترجم آية المصحف إلى ما يقابلها (SHD.loc)
 const shwOf = (k) => {
-  if (!SHD) return null; const m = SHD.loc && SHD.loc[RWV.mushaf], ks = m && k in m ? m[k] : [k];
+  const m = SHD.loc[RWV.mushaf], ks = m && k in m ? m[k] : [k];
   const L = ks.flatMap((x) => SHD.ayat[x] || []); return L.length ? L : null;
 };
 function shwHTML(k) {
@@ -313,7 +323,7 @@ function render() {
   const usul = RWV.plain ? '' : RWV.mushaf === 'base' ? (B.usul[st.page] ? '<button class="usb" id="usb">أصول الصفحة</button>' : '') : (M.usul && M.usul.length ? '<button class="usb" id="qusb">' + esc(M.usulTitle || 'تعريف المصحف') + '</button>' : '');
   const foot = RWV.plain ? 'النص: مشروع تنزيل tanzil.net (رواية حفص عن عاصم)' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل tanzil.net · الفرش: مصحف الراجح (الشاطبية والدرة)' : M.foot || '';
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
-  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); if (!$('aud')) audInit(); audSync(); audMark();
+  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); { const j = B.juzByPage[st.page - 1]; loadShw(j); if (j < 30) loadShw(j + 1); if (j > 1) loadShw(j - 1); } if (!$('aud')) audInit(); audSync(); audMark();
 }
 function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 
@@ -691,7 +701,6 @@ function jumpJuz() { let h = '<div class="jz">'; for (let k = 1; k <= 30; k++) {
     REG.qurra.forEach((q) => q.r.forEach((r) => RWS.set(r.id, { ...r, q: q.q })));
     (REG.extra || []).forEach((r) => RWS.set(r.id, { ...r, q: '' }));
     B = await getJSON('data/m/base.json'); indexBase();
-    try { SHD = await getJSON('data/shawahid.json'); } catch (e) {}
     RWV = RWS.get(REG.home || 'hafs');
     const hp = location.hash.match(/page=(\d+)/); if (hp) st.page = +hp[1];
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;
