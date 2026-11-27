@@ -631,7 +631,7 @@ let autoT = null;
 function autoFlip() { clearInterval(autoT); autoT = null; if (SET.auto && st.mode === 'show') autoT = setInterval(() => { if (!$('sheet').classList.contains('show') && !pop.classList.contains('show')) go(st.page + 1); }, SET.autoSec * 1000); }
 // لمس حافتي الشاشة
 document.addEventListener('click', (e) => {
-  if (!SET.edge || st.mode === 'tj' || !e.target.closest('#pages') || e.target.closest('.v,.u,button,a,.hid')) return;
+  if (!SET.edge || st.mode === 'tj' || !e.target.closest('#pages') || e.target.closest('.v,.u,button,a,.hid,[data-stop]')) return;
   const x = e.clientX, W = innerWidth;
   if (x > W * 0.85) { e.stopImmediatePropagation(); go(st.page - 1); } else if (x < W * 0.15) { e.stopImmediatePropagation(); go(st.page + 1); }
 }, true);
