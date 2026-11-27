@@ -67,17 +67,54 @@ const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k =
 const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
 function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
-// ===== الاستماع (تجربة لحفص): ملف لكل آية من everyayah.com، يتابع حتى آخر السورة ويظلّل رقم الآية الجارية =====
-const AUD = { a: new Audio(), k: null };
+// ===== الاستماع لحفص (العفاسي، ملف لكل آية من everyayah.com): شريط أسفل الصفحة — السورة، من آية إلى آية، عدد التكرار، تشغيل/إيقاف =====
+const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0 };
 const audUrl = (s, a) => 'https://everyayah.com/data/Alafasy_128kbps/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
-function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } }
-function audPlay(k) {
+function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } audUI(); }
+function audOne(k) {
   const [s, a] = k.split(':').map(Number); AUD.k = k; AUD.a.src = audUrl(s, a);
   AUD.a.play().catch(() => { toast('تعذّر تشغيل الصوت'); audStop(); });
   const p = pageOfAyah(ayahIdx.get(k)); if (p && p !== st.page) go(p); else audMark();
 }
+// يبدأ من آية: إن كانت داخل المقطع المحدد يتابعه بتكراره، وإلا يقرأ من الآية إلى آخر السورة مرة واحدة
+function audPlay(k) {
+  const [s, a] = k.split(':').map(Number);
+  if (!(s === AUD.s && a >= AUD.f && a <= AUD.t)) { AUD.s = s; AUD.f = a; AUD.t = B.suras[s - 1].ayahs; AUD.rep = 1; }
+  AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(k);
+}
 function audStop() { AUD.a.pause(); AUD.k = null; audMark(); }
-AUD.a.addEventListener('ended', () => { if (!AUD.k) return; const [s, a] = AUD.k.split(':').map(Number); if (a < B.suras[s - 1].ayahs) audPlay(s + ':' + (a + 1)); else audStop(); });
+AUD.a.addEventListener('ended', () => {
+  if (!AUD.k) return; const [s, a] = AUD.k.split(':').map(Number);
+  if (a < AUD.t) return audOne(s + ':' + (a + 1));
+  if (AUD.left > 0) { AUD.left--; return audOne(s + ':' + AUD.f); }
+  audStop();
+});
+function audSync() { // يضبط الشريط على سورة الصفحة الحالية إذا لم يكن يعمل
+  if (AUD.k || RWV.id !== 'hafs') return;
+  const s = firstSura(st.page), i = pageFirst[st.page - 1], fa = B.ayahs[i] && B.ayahs[i][0] === s ? B.ayahs[i][1] : 1;
+  if (s !== AUD.s) { AUD.s = s; AUD.f = fa; AUD.t = B.suras[s - 1].ayahs; }
+}
+function audUI() {
+  const bar = $('aud'); if (!bar) return; bar.hidden = RWV.id !== 'hafs'; if (bar.hidden) return;
+  const n = B.suras[AUD.s - 1].ayahs, opts = (v) => Array.from({ length: n }, (_, i) => '<option value="' + (i + 1) + '"' + (i + 1 === v ? ' selected' : '') + '>' + ar(i + 1) + '</option>').join('');
+  if ($('aS').value != AUD.s) $('aS').value = AUD.s;
+  $('aF').innerHTML = opts(AUD.f); $('aT').innerHTML = opts(AUD.t); $('aR').value = AUD.rep;
+  $('aP').textContent = AUD.k ? '■' : '▶'; $('aP').setAttribute('aria-label', AUD.k ? 'إيقاف' : 'تشغيل'); bar.classList.toggle('on', !!AUD.k);
+}
+function audInit() {
+  const bar = document.createElement('div'); bar.className = 'aud'; bar.id = 'aud';
+  bar.innerHTML = '<button id="aP" class="ap" aria-label="تشغيل">▶</button>'
+    + '<label><small>السورة</small><select id="aS">' + B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + ar(i + 1) + ' ' + x.name + '</option>').join('') + '</select></label>'
+    + '<label><small>من</small><select id="aF"></select></label><label><small>إلى</small><select id="aT"></select></label>'
+    + '<label><small>التكرار</small><select id="aR">' + [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option></select></label>'
+    + '<span class="aw"><small>القارئ</small>العفاسي · حفص</span>';
+  $('bot').prepend(bar);
+  $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(AUD.s + ':' + AUD.f); };
+  $('aS').onchange = (e) => { audStop(); AUD.s = +e.target.value; AUD.f = 1; AUD.t = B.suras[AUD.s - 1].ayahs; audUI(); };
+  $('aF').onchange = (e) => { AUD.f = +e.target.value; if (AUD.t < AUD.f) AUD.t = AUD.f; audUI(); };
+  $('aT').onchange = (e) => { AUD.t = +e.target.value; if (AUD.f > AUD.t) AUD.f = AUD.t; audUI(); };
+  $('aR').onchange = (e) => { AUD.rep = +e.target.value; if (AUD.k) AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; };
+}
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
   e.stopPropagation(); const k = n.dataset.stop; const [s, a] = k.split(':').map(Number); const cur = stopAt(k);
@@ -237,7 +274,7 @@ function render() {
   const usul = RWV.plain ? '' : RWV.mushaf === 'base' ? (B.usul[st.page] ? '<button class="usb" id="usb">أصول الصفحة</button>' : '') : (M.usul && M.usul.length ? '<button class="usb" id="qusb">' + esc(M.usulTitle || 'تعريف المصحف') + '</button>' : '');
   const foot = RWV.plain ? 'النص: مشروع تنزيل tanzil.net (رواية حفص عن عاصم)' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل tanzil.net · الفرش: مصحف الراجح (الشاطبية والدرة)' : M.foot || '';
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
-  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); audMark();
+  LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); if (!$('aud')) audInit(); audSync(); audMark();
 }
 function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 
