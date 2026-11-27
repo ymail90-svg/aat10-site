@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v42';
+const CACHE = 'q10-data-v43';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -66,7 +66,11 @@ const sName = (id) => SKINDS.find((x) => x[0] === id)[1];
 const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k === k && STOPS[id].rw === RWV.id);
 // ===== شواهد الشاطبية والدرّة على الآية (تجربة: الفاتحة) =====
 let SHD = null;
-const shwOf = (k) => (SHD && SHD.ayat[k]) || null;
+// مفاتيح الشواهد بالعدّ الكوفي؛ وفي المصاحف التي تعدّ بغيره تُترجم آية المصحف إلى ما يقابلها (SHD.loc)
+const shwOf = (k) => {
+  if (!SHD) return null; const m = SHD.loc && SHD.loc[RWV.mushaf], ks = m && k in m ? m[k] : [k];
+  const L = ks.flatMap((x) => SHD.ayat[x] || []); return L.length ? L : null;
+};
 function shwHTML(k) {
   const L = shwOf(k); if (!L) return '';
   const nm = (id) => (RWS.get(id) || {}).n || id;
