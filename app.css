@@ -190,3 +190,7 @@ body.bg-night .aud select{background:#151c21;color:#cfdde4;border-color:#24323a}
 .modes button.on{background:#fff;color:var(--g)}
 body.bg-night .modes{background:#0b1013}body.bg-night .modes button.on{background:#a6c9da;color:#151c21}
 .hid{--c:#d6e6ee}
+.swr{position:relative;overflow:hidden;border-top:1px solid var(--ln)}
+.swbg{position:absolute;inset:0;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 18px;font-size:16px;font-weight:bold}
+.swr .opt.sw{position:relative;background:#fff;border-top:0;touch-action:pan-y}
+body.bg-night .swr .opt.sw{background:#141a1e}

@@ -130,10 +130,22 @@ $('sheet').addEventListener('click', (e) => {
   const ds = t.closest('[data-delstop]'); if (ds) { delete STOPS[ds.dataset.delstop]; LS.set('stops', STOPS); closeSheet(); toast('أُزيل الموقف'); return render(); }
   const gs = t.closest('[data-gostop]'); if (gs) return goStop(gs.dataset.gostop);
 });
+// حذف الموقف بسحبه إلى اليسار في قائمة المواقف
+(() => { let row = null, x0 = 0, y0 = 0, dx = 0, lock = 0;
+  const sh = $('sheet');
+  sh.addEventListener('touchstart', (e) => { row = e.target.closest('[data-swdel]'); if (!row || e.target.closest('input,button')) { row = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; lock = 0; row.style.transition = 'none'; }, { passive: true });
+  sh.addEventListener('touchmove', (e) => { if (!row) return; const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!lock) { if (Math.abs(mx) < 8 && Math.abs(my) < 8) return; lock = Math.abs(mx) > Math.abs(my) ? 1 : 2; }
+    if (lock !== 1) return; e.preventDefault(); dx = Math.min(0, mx); row.style.transform = 'translateX(' + dx + 'px)'; }, { passive: false });
+  sh.addEventListener('touchend', () => { if (!row) return; const r = row, id = r.dataset.swdel; row = null; r.style.transition = 'transform .2s';
+    if (dx < -Math.min(110, r.offsetWidth * 0.35)) { r.style.transform = 'translateX(-110%)'; setTimeout(() => { delete STOPS[id]; LS.set('stops', STOPS); toast('حُذف موقف «' + sName(id) + '»'); render(); const g = r.closest('.grp'); if (g) g.outerHTML = stopsHTML(); }, 200); }
+    else r.style.transform = ''; });
+})();
 $('sheet').addEventListener('input', (e) => { const id = e.target.dataset.scol; if (id) { SCOL[id] = e.target.value; LS.set('stopColors', SCOL); render(); } });
-const stopsHTML = () => { let h = '<div class="grp"><h3>مواقف القراءة</h3><p class="note" style="padding:0 14px">اضغط رقم أي آية لحفظ موقف عندها. غيّر اللون من الدائرة.</p>';
+const stopsHTML = () => { let h = '<div class="grp"><h3>مواقف القراءة</h3><p class="note" style="padding:0 14px">اضغط رقم أي آية لحفظ موقف عندها. غيّر اللون من الدائرة. ولحذف موقف اسحبه إلى اليسار.</p>';
   for (const [id, nm] of SKINDS) { const x = STOPS[id];
-    h += '<div class="opt"><span><input type="color" class="scol" data-scol="' + id + '" value="' + sCol(id) + '"> ' + nm + (x ? '<br><span class="mt">' + stopLabel(x) + '</span>' : '<br><span class="mt">لا موقف</span>') + '</span>' + (x ? '<button class="btn" data-gostop="' + id + '">انتقل</button>' : '') + '</div>'; }
+    const row = '<div class="opt' + (x ? ' sw" data-swdel="' + id : '') + '"><span><input type="color" class="scol" data-scol="' + id + '" value="' + sCol(id) + '"> ' + nm + (x ? '<br><span class="mt">' + stopLabel(x) + '</span>' : '<br><span class="mt">لا موقف</span>') + '</span>' + (x ? '<button class="btn" data-gostop="' + id + '">انتقل</button>' : '') + '</div>';
+    h += x ? '<div class="swr"><div class="swbg">حذف</div>' + row + '</div>' : row; }
   return h + '</div>'; };
 const isFocus = (ids) => { const f = RWV.focus; return !f || ids.some((i) => f.some((n) => M.sites[i].r.includes(n))); };
 
