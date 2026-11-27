@@ -167,3 +167,6 @@ body.zen .pg{box-shadow:none}
 
 /* الصفحتان الأوليان: النص في وسط الصفحة بأسطر متباعدة، والبسملة سطر مستقل */
 .open{min-height:68vh;display:flex;flex-direction:column;justify-content:space-evenly}.open .sur{margin-bottom:0}.open .tx{text-align:center;text-align-last:center;line-height:3.3;font-size:1.4em}.open .tx.bsm1{margin-bottom:.3em}
+
+/* موقف القراءة */
+.n[data-stop]{cursor:pointer}.n.stp{background:#c0392b;color:#fff!important;border-radius:50%;box-shadow:0 0 0 3px rgba(192,57,43,.25)}#toast{pointer-events:auto}.stpgo{margin-inline-start:.5em;border:0;border-radius:8px;padding:.2em .7em;background:#1f7a5a;color:#fff;font:inherit}

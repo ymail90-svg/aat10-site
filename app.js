@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v30';
+const CACHE = 'q10-data-v31';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -57,6 +57,16 @@ function indexM() { QCOL = new Set(M.col || []); QSILA = new Set(M.sila || []); 
 function qAyahAt(w) { let lo = 0, hi = qStart.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (qStart[m] <= w) lo = m; else hi = m - 1; } return lo; }
 // علامة السكت: «س» حمراء صغيرة فوق موضعه — لام التعريف أول الكلمة، أو «شيء» وسطها، وإلا آخر الكلمة (ساكن قبل همز)
 const skMark = (t) => '<i class="sk ' + (/^[وفبكل]?[ٱا]\S?ل[ْۡ]?[أإآءٔ]/u.test(t) ? 'skr' : /شَ?[ىي][ْۡ]?ء/u.test(t) ? 'skc' : 'skl') + '">س</i>';
+// موقف القراءة: الضغط على رقم الآية يحفظه (مع الرواية والصفحة) ويُعلَّم الرقم، وعند الفتح يُعرض زر للعودة إليه
+let STOP = LS.get('stop', null);
+const nSp = (s, a) => '<span class="n' + (STOP && STOP.k === s + ':' + a && STOP.rw === RWV.id ? ' stp' : '') + '" data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>';
+document.addEventListener('click', (e) => {
+  const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
+  e.stopPropagation(); const [s, a] = n.dataset.stop.split(':').map(Number);
+  if (STOP && STOP.k === n.dataset.stop && STOP.rw === RWV.id) { STOP = null; LS.set('stop', null); toast('أُزيل الموقف'); }
+  else { STOP = { k: n.dataset.stop, rw: RWV.id, p: st.page, t: Date.now() }; LS.set('stop', STOP); toast('حُفظ الموقف: سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)); }
+  render();
+}, true);
 const isFocus = (ids) => { const f = RWV.focus; return !f || ids.some((i) => f.some((n) => M.sites[i].r.includes(n))); };
 
 function dots(tk, mm) {
@@ -74,8 +84,8 @@ function pageHafs(p) {
     const [s, a, t] = B.ayahs[i]; const key = s + ':' + a; const toks = t.split(' '); let w = ayahStart[i];
     if (a === 1) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>';
       if (s !== 1 && s !== 9) { let c = 0; const b = []; while (c < 4) { const tk = toks.shift(); if (!MARK.test(tk)) { c++; w++; } b.push(tk); } h += '<div class="bsm">' + esc(b.join(' ')) + '</div>'; }
-      if (s === 1) { const b = toks.splice(0, 4); w += 4; h += '<div class="bsm">' + esc(b.join(' ')) + ' <span class="n">' + ayn(1) + '</span></div>'; if (!toks.length) continue; } }
-    const num = ' <span class="n">' + ayn(a) + '</span> ';
+      if (s === 1) { const b = toks.splice(0, 4); w += 4; h += '<div class="bsm">' + esc(b.join(' ')) + ' ' + nSp(1, 1) + '</div>'; if (!toks.length) continue; } }
+    const num = ' ' + nSp(s, a) + ' ';
     if (isHidden(key)) { txt += hidSpan(key, esc(toks.join(' ')), num); continue; }
     const parts = [];
     for (const tk of toks) {
@@ -111,7 +121,7 @@ function pageM(p) {
         : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : skW(w, body));
       w++;
     }
-    const num = endsHere ? ' <span class="n">' + ayn(a) + '</span> ' : ' ';
+    const num = endsHere ? ' ' + nSp(s, a) + ' ' : ' ';
     txt += hidden ? hidSpan(key, parts.join(' '), num) : parts.join(' ') + num;
     // الفاتحة: البسملة (الآية ١) سطر مستقل في الأعلى كما في المطبوع
     if (s === 1 && a === 1 && M.fatihaBsm) { h += '<div class="tx bsm1">' + txt + '</div>'; txt = ''; }
@@ -141,7 +151,7 @@ function pageHafsLines(p, L) {
       else { const ss = B.wordSites[w], uu = B.wordUsul[w], mm = B.im[w], body = dots(tk, mm), tq = mm && mm[2] & 2 ? ' tq' : '';
         h = ss ? '<span class="v' + (approvedAll(B, ss) ? ' ok' : '') + '" data-w="' + w + '" data-k="' + key + '">' + body + '</span>' : (uu || mm) ? '<span class="u' + tq + '" data-w="' + w + '" data-k="' + key + '">' + body + '</span>' : body; }
       if (hid) h = '<span class="hid' + (st.marks.get(key) === 'mistake' ? ' err' : st.marks.get(key) === 'hesitation' ? ' hes' : '') + '" data-k="' + key + '">' + h + '</span>';
-      if (j === lastIdx) h += ' <span class="n">' + ayn(a) + '</span>';
+      if (j === lastIdx) h += ' ' + nSp(s, a);
       words[w] = h; lastW = w; w++;
     });
   }
@@ -574,6 +584,8 @@ function jumpJuz() { let h = '<div class="jz">'; for (let k = 1; k <= 30; k++) {
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;
     const hr = location.hash.match(/rw=([\w-]+)/); if (hr && RWS.get(hr[1])?.status === 'ready') { await openRw(hr[1]); return; }
     render(); wake(); autoTheme(); dailyTip();
+    if (STOP) { const [ss, aa] = STOP.k.split(':').map(Number); const e = $('toast'); e.innerHTML = 'موقفك: سورة ' + B.suras[ss - 1].name + ' · الآية ' + ar(aa) + ' <button id="stopGo" class="stpgo">انتقل إليه</button>'; e.classList.add('show'); setTimeout(hideToast, 7000);
+      $('stopGo').onclick = () => { hideToast(); st.page = STOP.p; if (STOP.rw !== RWV.id && RWS.get(STOP.rw)) openRw(STOP.rw); else go(STOP.p); }; }
   } catch (e) { $('pages').innerHTML = '<div class="pg"><div class="in"><p class="ld">تعذّر تحميل المصحف. تحقق من الاتصال ثم أعد فتح الصفحة.</p></div></div>'; }
 })();
 window.__app = { st, go, setMode, openRw };
