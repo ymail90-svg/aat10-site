@@ -359,8 +359,8 @@ function toast(t, ms = 1600) { const e = $('toast'); e.textContent = t; e.classL
 function hideToast() { $('toast').classList.remove('show'); }
 
 // ===== النوافذ السفلية =====
-function openSheet(html) { closePop(); $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('show'); $('scrim').classList.add('show'); $('sheet').scrollTop = 0; }
-function closeSheet() { sheetBack = null; $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); }
+function openSheet(html) { closePop(); $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('show'); $('scrim').classList.add('show'); $('sheet').scrollTop = 0; document.body.classList.add('lock'); }
+function closeSheet() { sheetBack = null; $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); document.body.classList.remove('lock'); }
 $('scrim').onclick = () => { closeSheet(); closePop(); };
 let sheetBack = null;
 const head = (t) => '<div class="sh">' + (sheetBack ? '<button class="x bk" data-back aria-label="رجوع"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>رجوع</button>' : '') + '<h2>' + t + '</h2><button class="x" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
@@ -522,7 +522,7 @@ document.addEventListener('click', (ev) => {
 }, true);
 document.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; if (e.key === 'ArrowLeft') go(st.page + 1); if (e.key === 'ArrowRight') go(st.page - 1); if (e.key === 'Escape') { closePop(); closeSheet(); } });
 // سحب الصفحة يمينًا ويسارًا للتقليب (في القراءة والتسميع)
-let tx0 = null; document.addEventListener('touchstart', (e) => { tx0 = st.mode === 'tj' || $('sheet').classList.contains('show') ? null : [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
+let tx0 = null; document.addEventListener('touchstart', (e) => { tx0 = st.mode === 'tj' || $('sheet').classList.contains('show') || e.target.closest('[data-stop]') ? null : [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
 document.addEventListener('touchend', (e) => { if (!tx0) return; const dx = e.changedTouches[0].clientX - tx0[0], dy = e.changedTouches[0].clientY - tx0[1]; if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy)) go(st.page + (dx > 0 ? 1 : -1)); tx0 = null; }, { passive: true });
 
 

@@ -204,3 +204,6 @@ body.bg-night .swr .opt.sw{background:#141a1e}
 .shb .mt{text-align:center}
 .shx{margin:8px 0 0;font-size:15px;line-height:1.8}
 body.bg-night .shb{background:#1b252b}body.bg-night .sht{color:#d2e5ee}
+#pages{touch-action:manipulation}
+.n[data-stop]{position:relative;-webkit-user-select:none;user-select:none}.n[data-stop]::before{content:'';position:absolute;inset:-12px -8px}
+body.lock{overflow:hidden;overscroll-behavior:none}
