@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v31';
+const CACHE = 'q10-data-v32';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -57,16 +57,35 @@ function indexM() { QCOL = new Set(M.col || []); QSILA = new Set(M.sila || []); 
 function qAyahAt(w) { let lo = 0, hi = qStart.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (qStart[m] <= w) lo = m; else hi = m - 1; } return lo; }
 // علامة السكت: «س» حمراء صغيرة فوق موضعه — لام التعريف أول الكلمة، أو «شيء» وسطها، وإلا آخر الكلمة (ساكن قبل همز)
 const skMark = (t) => '<i class="sk ' + (/^[وفبكل]?[ٱا]\S?ل[ْۡ]?[أإآءٔ]/u.test(t) ? 'skr' : /شَ?[ىي][ْۡ]?ء/u.test(t) ? 'skc' : 'skl') + '">س</i>';
-// موقف القراءة: الضغط على رقم الآية يحفظه (مع الرواية والصفحة) ويُعلَّم الرقم، وعند الفتح يُعرض زر للعودة إليه
-let STOP = LS.get('stop', null);
-const nSp = (s, a) => '<span class="n' + (STOP && STOP.k === s + ':' + a && STOP.rw === RWV.id ? ' stp' : '') + '" data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>';
+// مواقف القراءة: لكل نوع (حفظ، مراجعة، تلاوة، تدبر) موقف واحد بلونه؛ الضغط على رقم الآية يختار النوع، وتُدار من «العلامات والملاحظات»
+const SKINDS = [['hifz', 'حفظ', '#1f5fbf'], ['mur', 'مراجعة', '#c0392b'], ['til', 'تلاوة', '#1f7a5a'], ['tad', 'تدبر', '#8e44ad']];
+let STOPS = LS.get('stops', {}); const SCOL = LS.get('stopColors', {});
+{ const o = LS.get('stop', null); if (o && !Object.keys(STOPS).length) { STOPS.til = o; LS.set('stops', STOPS); } }
+const sCol = (id) => SCOL[id] || SKINDS.find((x) => x[0] === id)[2];
+const sName = (id) => SKINDS.find((x) => x[0] === id)[1];
+const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k === k && STOPS[id].rw === RWV.id);
+const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
+const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
+function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
-  e.stopPropagation(); const [s, a] = n.dataset.stop.split(':').map(Number);
-  if (STOP && STOP.k === n.dataset.stop && STOP.rw === RWV.id) { STOP = null; LS.set('stop', null); toast('أُزيل الموقف'); }
-  else { STOP = { k: n.dataset.stop, rw: RWV.id, p: st.page, t: Date.now() }; LS.set('stop', STOP); toast('حُفظ الموقف: سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)); }
-  render();
+  e.stopPropagation(); const k = n.dataset.stop; const [s, a] = k.split(':').map(Number); const cur = stopAt(k);
+  let h = head('موقف عند سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)) + '<div class="grp"><h3>اختر نوع الموقف</h3>';
+  for (const [id, nm] of SKINDS) h += '<button class="opt" data-setstop="' + id + '|' + k + '"><span><i class="sdot" style="background:' + sCol(id) + '"></i>' + nm + '</span><span class="mt">' + (STOPS[id] ? (cur === id ? 'هنا' : 'يُنقل إلى هنا') : '') + '</span></button>';
+  if (cur) h += '<button class="opt" data-delstop="' + cur + '"><span>إزالة موقف «' + sName(cur) + '»</span></button>';
+  sheetBack = null; openSheet(h + '</div>');
 }, true);
+$('sheet').addEventListener('click', (e) => {
+  const t = e.target;
+  const ss = t.closest('[data-setstop]'); if (ss) { const [id, k] = ss.dataset.setstop.split('|'); STOPS[id] = { k, rw: RWV.id, p: st.page, t: Date.now() }; LS.set('stops', STOPS); closeSheet(); toast('حُفظ موقف «' + sName(id) + '»'); return render(); }
+  const ds = t.closest('[data-delstop]'); if (ds) { delete STOPS[ds.dataset.delstop]; LS.set('stops', STOPS); closeSheet(); toast('أُزيل الموقف'); return render(); }
+  const gs = t.closest('[data-gostop]'); if (gs) return goStop(gs.dataset.gostop);
+});
+$('sheet').addEventListener('input', (e) => { const id = e.target.dataset.scol; if (id) { SCOL[id] = e.target.value; LS.set('stopColors', SCOL); render(); } });
+const stopsHTML = () => { let h = '<div class="grp"><h3>مواقف القراءة</h3><p class="note" style="padding:0 14px">اضغط رقم أي آية لحفظ موقف عندها. غيّر اللون من الدائرة.</p>';
+  for (const [id, nm] of SKINDS) { const x = STOPS[id];
+    h += '<div class="opt"><span><input type="color" class="scol" data-scol="' + id + '" value="' + sCol(id) + '"> ' + nm + (x ? '<br><span class="mt">' + stopLabel(x) + '</span>' : '<br><span class="mt">لا موقف</span>') + '</span>' + (x ? '<button class="btn" data-gostop="' + id + '">انتقل</button>' : '') + '</div>'; }
+  return h + '</div>'; };
 const isFocus = (ids) => { const f = RWV.focus; return !f || ids.some((i) => f.some((n) => M.sites[i].r.includes(n))); };
 
 function dots(tk, mm) {
@@ -450,7 +469,7 @@ const mkKey = () => RWV.id + ':' + st.page;
 function markUI() { $('bMark').classList.toggle('on', !!MK.marks[mkKey()]); }
 function sheetMarks() {
   const k = mkKey(), on = !!MK.marks[k];
-  let h = head('العلامات والملاحظات') + '<div class="grp"><h3>هذه الصفحة · ' + ar(st.page) + ' · ' + esc(RWV.n) + '</h3><div class="opt"><span>' + (on ? 'عليها علامة' : 'بلا علامة') + '</span><button class="btn' + (on ? ' o' : '') + '" data-mk>' + (on ? 'إزالة العلامة' : 'ضع علامة') + '</button></div>' +
+  let h = head('العلامات والملاحظات') + stopsHTML() + '<div class="grp"><h3>هذه الصفحة · ' + ar(st.page) + ' · ' + esc(RWV.n) + '</h3><div class="opt"><span>' + (on ? 'عليها علامة' : 'بلا علامة') + '</span><button class="btn' + (on ? ' o' : '') + '" data-mk>' + (on ? 'إزالة العلامة' : 'ضع علامة') + '</button></div>' +
     '<div class="opt" style="display:block"><textarea class="nt" id="ntx" placeholder="ملاحظتك على هذه الصفحة">' + esc(MK.notes[k] || '') + '</textarea><button class="btn" data-ntsave style="margin-top:6px">حفظ الملاحظة</button></div></div>';
   const all = [...new Set([...Object.keys(MK.marks), ...Object.keys(MK.notes)])].sort((a, b) => +a.split(':')[1] - +b.split(':')[1]);
   h += '<div class="grp"><h3>كل العلامات والملاحظات</h3><div class="lst">';
@@ -584,8 +603,8 @@ function jumpJuz() { let h = '<div class="jz">'; for (let k = 1; k <= 30; k++) {
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;
     const hr = location.hash.match(/rw=([\w-]+)/); if (hr && RWS.get(hr[1])?.status === 'ready') { await openRw(hr[1]); return; }
     render(); wake(); autoTheme(); dailyTip();
-    if (STOP) { const [ss, aa] = STOP.k.split(':').map(Number); const e = $('toast'); e.innerHTML = 'موقفك: سورة ' + B.suras[ss - 1].name + ' · الآية ' + ar(aa) + ' <button id="stopGo" class="stpgo">انتقل إليه</button>'; e.classList.add('show'); setTimeout(hideToast, 7000);
-      $('stopGo').onclick = () => { hideToast(); st.page = STOP.p; if (STOP.rw !== RWV.id && RWS.get(STOP.rw)) openRw(STOP.rw); else go(STOP.p); }; }
+    { const last = Object.keys(STOPS).filter((id) => STOPS[id]).sort((x, y) => STOPS[y].t - STOPS[x].t)[0];
+      if (last) { const e = $('toast'); e.innerHTML = 'موقف «' + sName(last) + '»: ' + stopLabel(STOPS[last]) + ' <button id="stopGo" class="stpgo">انتقل إليه</button>'; e.classList.add('show'); setTimeout(hideToast, 7000); $('stopGo').onclick = () => goStop(last); } }
   } catch (e) { $('pages').innerHTML = '<div class="pg"><div class="in"><p class="ld">تعذّر تحميل المصحف. تحقق من الاتصال ثم أعد فتح الصفحة.</p></div></div>'; }
 })();
 window.__app = { st, go, setMode, openRw };
