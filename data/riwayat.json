@@ -203,13 +203,25 @@
     {
      "id": "ruways",
      "n": "رويس",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "yaqub",
+     "focus": [
+      "رويس",
+      "يعقوب"
+     ],
+     "title": "قراءة يعقوب الحضرمي · نص حفص وبالهامش رويس"
     },
     {
      "id": "rawh",
      "n": "روح",
      "tag": "بالهامش",
-     "status": "soon"
+     "status": "ready",
+     "mushaf": "yaqub",
+     "focus": [
+      "روح",
+      "يعقوب"
+     ],
+     "title": "قراءة يعقوب الحضرمي · نص حفص وبالهامش روح"
     }
    ]
   },
