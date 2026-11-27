@@ -209,3 +209,4 @@ body.bg-night .shb{background:#1b252b}body.bg-night .sht{color:#d2e5ee}
 body.lock{overflow:hidden;overscroll-behavior:none}
 .sht{display:flex;align-items:baseline;justify-content:space-between;gap:.5em;white-space:nowrap;overflow:hidden}
 .sht>span:not(.shs){flex:1 1 auto;text-align:center}.sht .shs{flex:none;margin:0}
+.stpbtn{display:block;width:100%;margin:12px 0 4px;min-height:46px;font-size:16px}
