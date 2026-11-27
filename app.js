@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v40';
+const CACHE = 'q10-data-v41';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -64,7 +64,22 @@ let STOPS = LS.get('stops', {}); const SCOL = LS.get('stopColors', {});
 const sCol = (id) => SCOL[id] || SKINDS.find((x) => x[0] === id)[2];
 const sName = (id) => SKINDS.find((x) => x[0] === id)[1];
 const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k === k && STOPS[id].rw === RWV.id);
-const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
+// ===== شواهد الشاطبية والدرّة على الآية (تجربة: الفاتحة) =====
+let SHD = null;
+const shwOf = (k) => (SHD && SHD.ayat[k]) || null;
+function shwHTML(k) {
+  const L = shwOf(k); if (!L) return '';
+  const nm = (id) => (RWS.get(id) || {}).n || id;
+  let h = '<div class="grp shw"><h3>شواهد الآية من الشاطبية والدرّة</h3>';
+  for (const x of L) {
+    h += '<div class="shi"><div class="shw-w">' + esc(x.w) + '</div>';
+    for (const [rd, ids] of x.r) { const me = ids.includes(RWV.id); h += '<div class="shr' + (me ? ' me' : '') + '"><b>' + esc(rd) + '</b>: ' + ids.map(nm).map(esc).join('، ') + (me ? ' <span class="tag">روايتك</span>' : '') + '</div>'; }
+    for (const v of x.v) { const b = SHD.verses[v]; if (b) h += '<div class="shb"><div class="sht">' + esc(b.t).replace(' ... ', '<span class="shs">*</span>') + '</div><div class="mt">' + esc(b.src) + ' · ' + esc(b.bab) + ' · البيت ' + ar(b.n) + '</div></div>'; }
+    h += '<p class="shx">' + esc(x.sharh) + '</p></div>';
+  }
+  return h + '<p class="note" style="padding:0 14px">مسودة لم يعتمدها المراجع العلمي بعد.</p></div>';
+}
+const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + (shwOf(s + ':' + a) ? ' shw' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
 function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
 // ===== الاستماع لحفص (العفاسي، ملف لكل آية من everyayah.com): شريط أسفل الصفحة — السورة، من آية إلى آية، عدد التكرار، تشغيل/إيقاف =====
@@ -118,7 +133,7 @@ function audInit() {
 document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
   e.stopPropagation(); const k = n.dataset.stop; const [s, a] = k.split(':').map(Number); const cur = stopAt(k);
-  let h = head('موقف عند سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a)) + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (تجربة: مشاري العفاسي، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '') + '<div class="grp"><h3>اختر نوع الموقف</h3>';
+  let h = head((shwOf(k) ? 'سورة ' : 'موقف عند سورة ') + B.suras[s - 1].name + ' · الآية ' + ar(a)) + shwHTML(k) + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (تجربة: مشاري العفاسي، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '') + '<div class="grp"><h3>اختر نوع الموقف</h3>';
   for (const [id, nm] of SKINDS) h += '<button class="opt" data-setstop="' + id + '|' + k + '"><span><i class="sdot" style="background:' + sCol(id) + '"></i>' + nm + '</span><span class="mt">' + (STOPS[id] ? (cur === id ? 'هنا' : 'يُنقل إلى هنا') : '') + '</span></button>';
   if (cur) h += '<button class="opt" data-delstop="' + cur + '"><span>إزالة موقف «' + sName(cur) + '»</span></button>';
   sheetBack = null; openSheet(h + '</div>');
@@ -662,6 +677,7 @@ function jumpJuz() { let h = '<div class="jz">'; for (let k = 1; k <= 30; k++) {
     REG.qurra.forEach((q) => q.r.forEach((r) => RWS.set(r.id, { ...r, q: q.q })));
     (REG.extra || []).forEach((r) => RWS.set(r.id, { ...r, q: '' }));
     B = await getJSON('data/m/base.json'); indexBase();
+    try { SHD = await getJSON('data/shawahid.json'); } catch (e) {}
     RWV = RWS.get(REG.home || 'hafs');
     const hp = location.hash.match(/page=(\d+)/); if (hp) st.page = +hp[1];
     if (!(st.page >= 1 && st.page <= 604)) st.page = 1;

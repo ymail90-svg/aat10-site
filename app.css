@@ -194,3 +194,13 @@ body.bg-night .modes{background:#0b1013}body.bg-night .modes button.on{backgroun
 .swbg{position:absolute;inset:0;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:flex-end;padding:0 18px;font-size:16px;font-weight:bold}
 .swr .opt.sw{position:relative;background:#fff;border-top:0;touch-action:pan-y}
 body.bg-night .swr .opt.sw{background:#141a1e}
+.n.shw{position:relative}.n.shw::after{content:'';position:absolute;top:-2px;inset-inline-end:-2px;width:7px;height:7px;border-radius:50%;background:#c9a24f;box-shadow:0 0 0 1.5px var(--pg)}
+.shw .shi{border-top:1px solid var(--ln);padding:10px 14px}
+.shw-w{font-family:var(--qf,AM);font-size:22px;color:#c0161b;margin-bottom:4px}
+.shr{font-size:14px;line-height:1.7;color:var(--mu)}.shr b{color:var(--tx)}.shr.me{background:var(--gl);border-radius:8px;padding:2px 6px;color:var(--tx)}
+.shr .tag{font-size:11px;background:var(--g);color:#fff;border-radius:6px;padding:0 5px}
+.shb{margin:8px 0 2px;padding:8px 10px;background:#fbf6ea;border-inline-start:3px solid #c9a24f;border-radius:8px}
+.sht{font-family:AM,serif;font-size:18px;line-height:1.9;color:#1b4357;text-align:center}.shs{color:#c9a24f;margin:0 .6em}
+.shb .mt{text-align:center}
+.shx{margin:8px 0 0;font-size:15px;line-height:1.8}
+body.bg-night .shb{background:#1b252b}body.bg-night .sht{color:#d2e5ee}
