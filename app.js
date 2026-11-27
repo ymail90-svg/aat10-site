@@ -138,6 +138,7 @@ document.addEventListener('click', (e) => {
   const n = e.target.closest('[data-stop]'); if (!n || st.mode !== 'show') return;
   e.stopPropagation(); const k = n.dataset.stop; const [s, a] = k.split(':').map(Number); const cur = stopAt(k);
   let h = head((shwOf(k) ? 'سورة ' : 'موقف عند سورة ') + B.suras[s - 1].name + ' · الآية ' + ar(a)) + shwHTML(k) + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (تجربة: مشاري العفاسي، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '') + '<div class="grp"><h3>اختر نوع الموقف</h3>';
+  if (shwOf(k)) { sheetBack = null; return openSheet(h.slice(0, h.lastIndexOf('<div class="grp"><h3>اختر نوع الموقف</h3>'))); }  // نافذة الشواهد بلا قسم المواقف
   for (const [id, nm] of SKINDS) h += '<button class="opt" data-setstop="' + id + '|' + k + '"><span><i class="sdot" style="background:' + sCol(id) + '"></i>' + nm + '</span><span class="mt">' + (STOPS[id] ? (cur === id ? 'هنا' : 'يُنقل إلى هنا') : '') + '</span></button>';
   if (cur) h += '<button class="opt" data-delstop="' + cur + '"><span>إزالة موقف «' + sName(cur) + '»</span></button>';
   sheetBack = null; openSheet(h + '</div>');
