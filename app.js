@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v35';
+const CACHE = 'q10-data-v36';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -129,8 +129,11 @@ function pageM(p) {
     const endsHere = qStart[i] + nw <= to;
     if (a === 1 && w >= from) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>'; if (s !== 9 && M.bsm && !(s === 1 && M.fatihaBsm)) h += '<div class="bsm">' + esc(M.bsm) + '</div>'; }
     const hidden = isHidden(key), parts = [];
+    // نص تنزيل يضم البسملة إلى أول آية من كل سورة، والبسملة معروضة في رأس السورة؛ فلا تُكرَّر
+    let skipB = M.bsmInText && a === 1 && s !== 1 && s !== 9 ? 4 : 0;
     for (const tk of toks) {
-      if (QM.test(tk)) { if (w >= from && w < to) parts.push(esc(qd(tk))); continue; }
+      if (QM.test(tk)) { if (w >= from && w < to && !skipB) parts.push(esc(qd(tk))); continue; }
+      if (skipB) { skipB--; w++; continue; }
       if (w < from || w >= to) { w++; continue; }
       const ss = M.ws[w];
       const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
