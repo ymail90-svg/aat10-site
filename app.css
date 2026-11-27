@@ -207,3 +207,5 @@ body.bg-night .shb{background:#1b252b}body.bg-night .sht{color:#d2e5ee}
 #pages{touch-action:manipulation}
 .n[data-stop]{position:relative;-webkit-user-select:none;user-select:none}.n[data-stop]::before{content:'';position:absolute;inset:-12px -8px}
 body.lock{overflow:hidden;overscroll-behavior:none}
+.sht{display:flex;align-items:baseline;justify-content:space-between;gap:.5em;white-space:nowrap;overflow:hidden}
+.sht>span:not(.shs){flex:1 1 auto;text-align:center}.sht .shs{flex:none;margin:0}

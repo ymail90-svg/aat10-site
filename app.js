@@ -78,7 +78,7 @@ function shwHTML(k) {
   for (const x of L) {
     h += '<div class="shi"><div class="shw-w">' + esc(x.w) + '</div>';
     for (const [rd, ids] of x.r) { const me = ids.includes(RWV.id); h += '<div class="shr' + (me ? ' me' : '') + '"><b>' + esc(rd) + '</b>: ' + ids.map(nm).map(esc).join('، ') + (me ? ' <span class="tag">روايتك</span>' : '') + '</div>'; }
-    for (const v of x.v) { const b = SHD.verses[v]; if (b) h += '<div class="shb"><div class="sht">' + esc(b.t).replace(' ... ', '<span class="shs">*</span>') + '</div><div class="mt">' + esc(b.src) + ' · ' + esc(b.bab) + ' · البيت ' + ar(b.n) + '</div></div>'; }
+    for (const v of x.v) { const b = SHD.verses[v]; if (b) { const [a1, a2] = b.t.split(' ... '); h += '<div class="shb"><div class="sht"><span>' + esc(a1) + '</span><span class="shs">*</span><span>' + esc(a2 || '') + '</span></div><div class="mt">' + esc(b.src) + ' · ' + esc(b.bab) + ' · البيت ' + ar(b.n) + '</div></div>'; } }
     h += '<p class="shx">' + esc(x.sharh) + '</p></div>';
   }
   return h + '<p class="note" style="padding:0 14px">مسودة لم يعتمدها المراجع العلمي بعد.</p></div>';
@@ -359,7 +359,9 @@ function toast(t, ms = 1600) { const e = $('toast'); e.textContent = t; e.classL
 function hideToast() { $('toast').classList.remove('show'); }
 
 // ===== النوافذ السفلية =====
-function openSheet(html) { closePop(); $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('show'); $('scrim').classList.add('show'); $('sheet').scrollTop = 0; document.body.classList.add('lock'); }
+function openSheet(html) { closePop(); $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('show'); $('scrim').classList.add('show'); $('sheet').scrollTop = 0; document.body.classList.add('lock'); fitVerses(); }
+// البيت في سطر واحد: يُصغَّر الخط حتى يتسع له عرض النافذة
+function fitVerses() { requestAnimationFrame(() => document.querySelectorAll('#sheet .sht').forEach((e) => { let f = 18; e.style.fontSize = f + 'px'; while (e.scrollWidth > e.clientWidth && f > 10) { f -= 0.5; e.style.fontSize = f + 'px'; } })); }
 function closeSheet() { sheetBack = null; $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); document.body.classList.remove('lock'); }
 $('scrim').onclick = () => { closeSheet(); closePop(); };
 let sheetBack = null;
