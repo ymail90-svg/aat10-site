@@ -184,3 +184,9 @@ body.zen .pg{box-shadow:none}
 .aud.on .ap{background:#b23a3a}
 body.bg-night .aud select{background:#151c21;color:#cfdde4;border-color:#24323a}
 .below{margin-bottom:150px}
+.modes{background:var(--g)}
+.modes button,.modes .ib2,.modes .chip2{background:transparent;color:#fff;font-weight:bold}
+.modes button svg{stroke:#fff}
+.modes button.on{background:#fff;color:var(--g)}
+body.bg-night .modes{background:#0b1013}body.bg-night .modes button.on{background:#a6c9da;color:#151c21}
+.hid{--c:#d6e6ee}
