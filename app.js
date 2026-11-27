@@ -361,7 +361,7 @@ async function openRw(id) {
 }
 
 const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one') === 'long' ? 'one' : LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), tips: LS.get('tips', true), openTan: LS.get('openTan2', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
-const BGS = [['green', '#eef7f2', 'أخضر فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141d18', 'ليلي']];
+const BGS = [['green', '#eef4f7', 'أزرق فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141a1e', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
 function sheetMenu() { sheetBack = null;
@@ -478,7 +478,7 @@ function openWord(el) {
   if (uls.length) { h += '<div class="uh">الأصول</div>'; for (const li of uls) { const [, hd, text] = B.usulLines[li]; h += '<div class="ul"><span class="hd2">' + esc(hd) + ':</span> ' + hl(text, el.textContent) + '</div>'; } }
   showPop(h + '<div class="warn">مسودة مستخرجة من مصحف الراجح، لم يعتمدها المراجع العلمي بعد.</div>', el.dataset.w);
 }
-function openUsul() { let h = '<h2 style="font-family:AM;font-size:22px;color:#14523c">أصول الصفحة ' + ar(st.page) + '</h2>'; for (const [k, v] of Object.entries(B.usul[st.page])) h += '<h4>' + esc(k) + '</h4>' + v.map((x) => '<p>' + esc(x) + '</p>').join(''); showPop(h + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
+function openUsul() { let h = '<h2 style="font-family:AM;font-size:22px;color:#1b4357">أصول الصفحة ' + ar(st.page) + '</h2>'; for (const [k, v] of Object.entries(B.usul[st.page])) h += '<h4>' + esc(k) + '</h4>' + v.map((x) => '<p>' + esc(x) + '</p>').join(''); showPop(h + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 function openQUsul() { const md = (t) => t.split(/\n\n+/).map((b) => (b.startsWith('## ') ? '<h4>' + esc(b.slice(3)) + '</h4>' : b.startsWith('# ') ? '<h4>' + esc(b.slice(2)) + '</h4>' : '<p>' + esc(b).replace(/\n/g, '<br>') + '</p>')).join(''); showPop(M.usul.map(md).join('') + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 document.addEventListener('click', (ev) => {
   const t = ev.target; if (pop.contains(t) || $('sheet').contains(t)) return;
