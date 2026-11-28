@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v78';
+const CACHE = 'q10-data-v79';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -85,17 +85,28 @@ const shwOf = (k) => {
   // الحكم المتكرر مخزَّن مرة واحدة في القواعد، والموضع يحمل رقم القاعدة وكلمته وترتيبه
   const L = ks.flatMap((x) => (SHD.ayat[x] || []).map((e) => (e.rule && SHD.rules && SHD.rules[e.rule] ? Object.assign({}, SHD.rules[e.rule], e) : e))); return L.length ? L : null;
 };
-function shwHTML(k) {
-  const L = shwOf(k); if (!L) return '';
+function shwItems(L) {
   const nm = (id) => (RWS.get(id) || {}).n || id;
-  let h = '<div class="grp shw"><h3>شواهد الآية من الشاطبية والدرّة</h3>';
+  let h = '';
   for (const x of L) {
     h += '<div class="shi"><div class="shw-w">' + esc(x.w) + '</div>';
     for (const [rd, ids] of x.r) { const me = ids.includes(RWV.id); h += '<div class="shr' + (me ? ' me' : '') + '"><b>' + esc(rd) + '</b>: ' + ids.map(nm).map(esc).join('، ') + (me ? ' <span class="tag">روايتك</span>' : '') + '</div>'; }
-    for (const v of x.v) { const b = SHD.verses[v]; if (b) { const [a1, a2] = b.t.split(' ... '); h += '<div class="shb"><div class="sht"><span>' + esc(a1) + '</span><span class="shs">*</span><span>' + esc(a2 || '') + '</span></div><div class="mt">' + esc(b.src) + ' · ' + esc(b.bab) + ' · البيت ' + ar(b.n) + '</div></div>'; } }
-    h += '<p class="shx">' + esc(x.sharh) + '</p></div>';
+    for (const v of x.v || []) { const b = SHD.verses[v]; if (b) { const [a1, a2] = b.t.split(' ... '); h += '<div class="shb"><div class="shbt">' + ic(IC.star) + 'شاهد ' + esc(b.src) + '</div><div class="sht"><span>' + esc(a1) + '</span><span class="shs">*</span><span>' + esc(a2 || '') + '</span></div><div class="mt">' + esc(b.bab) + ' · البيت ' + ar(b.n) + '</div></div>'; } }
+    h += (x.sharh ? '<p class="shx">' + esc(x.sharh) + '</p>' : '') + '</div>';
   }
-  return h + '<p class="note" style="padding:0 14px">مسودة لم يعتمدها المراجع العلمي بعد.</p></div>';
+  return h;
+}
+function shwHTML(k) {
+  const L = shwOf(k); if (!L) return '';
+  return '<div class="grp shw"><h3>شواهد الآية من الشاطبية والدرّة</h3>' + shwItems(L) + '<p class="note" style="padding:0 14px">مسودة لم يعتمدها المراجع العلمي بعد.</p></div>';
+}
+// شواهد الكلمة الملوّنة: المداخل التي فيها لفظها من شواهد آيتها، وإلا شواهد الآية كلها
+function shwWord(k, text) {
+  if (!SHWON) return '<p class="note">الشواهد مخفية. فعّلها من القائمة: القراءات والشواهد.</p>';
+  const L = shwOf(k); if (!L) return '<p class="note">لا شاهد لهذا الموضع بعد.</p>';
+  const ws = new Set(text.split(/\s+/).map(skel).filter((x) => x.length > 1));
+  const hit = L.filter((x) => String(x.w).split(/[\s،,()….]+/).some((q) => ws.has(skel(q))));
+  return hit.length ? shwItems(hit) : '<p class="note">لا شاهد على هذه الكلمة نفسها؛ هذه شواهد الآية:</p>' + shwItems(L);
 }
 const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' + (id ? ' stp' : '') + (shwOf(s + ':' + a) ? ' shw' : '') + '"' + (id ? ' style="background:' + sCol(id) + '"' : '') + ' data-stop="' + s + ':' + a + '">' + ayn(a) + '</span>'; };
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
@@ -136,16 +147,17 @@ function audUI() {
   const n = B.suras[AUD.s - 1].ayahs, opts = (v) => Array.from({ length: n }, (_, i) => '<option value="' + (i + 1) + '"' + (i + 1 === v ? ' selected' : '') + '>' + ar(i + 1) + '</option>').join('');
   if ($('aS').value != AUD.s) $('aS').value = AUD.s;
   $('aF').innerHTML = opts(AUD.f); $('aT').innerHTML = opts(AUD.t); $('aR').value = AUD.rep;
-  $('aP').textContent = AUD.k ? '■' : '▶'; $('aP').setAttribute('aria-label', AUD.k ? 'إيقاف' : 'تشغيل'); bar.classList.toggle('on', !!AUD.k);
+  $('aP').innerHTML = AUD.k ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2" class="f"/></svg>' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" class="f"/></svg>'; $('aP').setAttribute('aria-label', AUD.k ? 'إيقاف' : 'تشغيل'); bar.classList.toggle('on', !!AUD.k);
 }
 function audInit() {
   const bar = document.createElement('div'); bar.className = 'aud'; bar.id = 'aud';
-  bar.innerHTML = '<button id="aP" class="ap" aria-label="تشغيل">▶</button>'
-    + '<label><small>السورة · الطنيجي</small><select id="aS">' + B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + ar(i + 1) + ' ' + x.name + '</option>').join('') + '</select></label>'
-    + '<label><small>من</small><select id="aF"></select></label><label><small>إلى</small><select id="aT"></select></label>'
-    + '<label><small>التكرار</small><select id="aR">' + [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option></select></label>'
-    + '<label><small>السرعة</small><select id="aV">' + [0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => '<option value="' + v + '"' + (v === AUD.rate ? ' selected' : '') + '>' + (v === 1 ? 'عادية' : '×' + ar(String(v).replace('.', '٫'))) + '</option>').join('') + '</select></label>'
-    + '<span class="aw"><small>القارئ</small>خليفة الطنيجي · حفص</span>';
+  const sel = (id, opts) => '<span class="sl"><select id="' + id + '">' + opts + '</select></span>';
+  bar.innerHTML = '<div class="ar1"><label><small>السورة</small>' + sel('aS', B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + x.name + '</option>').join('')) + '</label>'
+    + '<label><small>القارئ الصوتي</small>' + sel('aQ', '<option>الطنيجي</option>') + '</label></div>'
+    + '<div class="ar2"><button id="aP" class="ap" aria-label="تشغيل"></button>'
+    + '<label><small>من</small>' + sel('aF', '') + '</label><label><small>إلى</small>' + sel('aT', '') + '</label>'
+    + '<label><small>التكرار</small>' + sel('aR', [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option>') + '</label>'
+    + '<label><small>السرعة</small>' + sel('aV', [0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => '<option value="' + v + '"' + (v === AUD.rate ? ' selected' : '') + '>' + (v === 1 ? 'عادية' : '×' + ar(String(v).replace('.', '٫'))) + '</option>').join('')) + '</label></div>';
   $('bot').prepend(bar);
   $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(AUD.s + ':' + AUD.f); };
   $('aV').onchange = (e) => { AUD.rate = +e.target.value; LS.set('arate', AUD.rate); AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.playbackRate = AUD.rate; };
@@ -406,6 +418,7 @@ function reveal(key) { st.revealed.add(key); st.last = key; render(); }
 function mark(kind) { const k = st.last || pageKeys().find((x) => !st.revealed.has(x)); if (!k) return; st.marks.set(k, kind); toast((kind === 'mistake' ? 'سُجّل خطأ في الآية ' : 'سُجّل تردد في الآية ') + ar(k.split(':')[1])); }
 $('revNext').onclick = () => { const k = pageKeys().find((x) => isHidden(x)); if (k) reveal(k); };
 $('mkErr').onclick = () => mark('mistake'); $('mkHes').onclick = () => mark('hesitation');
+$('memBack').onclick = () => setMode('show'); $('mPrev').onclick = () => go(st.page - 1); $('mNext').onclick = () => go(st.page + 1);
 $('revAll').onclick = () => { st.showAll = true; render(); };
 $('hideAll').onclick = () => { st.showAll = false; st.revealed.clear(); st.last = null; st.part = null; render(); };
 
@@ -434,7 +447,7 @@ function vExp(key) {
 // الآية التالية: أول آية مخفية تظهر في الصفحة نفسها بترتيبها
 const vNext = () => { const e = document.querySelector('#page .hid[data-k]'); return e ? e.dataset.k : null; };
 function vSay(t, err) { const e = $('voiceSt'); if (e) { e.textContent = t; e.classList.toggle('err', !!err); } }
-function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg !== undefined) vSay(msg, err); }
+function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').querySelector('span').textContent = 'سمّع بصوتك'; if (msg !== undefined) vSay(msg, err); }
 // تمرير الصفحة لتبقى الكلمة التي يُنتظر قراؤها في منتصف الشاشة تقريبًا
 function vScroll() { requestAnimationFrame(() => { const e = document.querySelector('#page .hid'); if (!e) return; const r = e.getBoundingClientRect(), H = innerHeight; if (r.bottom > H * 0.62 || r.top < H * 0.15) scrollBy({ top: r.top - H * 0.35, behavior: 'smooth' }); }); }
 // حدود كلمات الآية الظاهرة في الصفحة الحالية (الآية قد تبدأ في صفحة وتتم في التالية)
@@ -579,7 +592,7 @@ function vStart() {
   r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') vStop('اسمح للموقع باستخدام الميكروفون ثم أعد المحاولة', true); else if (e.error === 'network') vStop('التسميع بالصوت يحتاج إلى اتصال بالإنترنت', true); };
   r.onend = () => { if (VZ.on) { VZ.pos = 0; VZ.base = st.part && st.part.key === VZ.key ? st.part.n : 0; try { r.start(); } catch (e) {} } };
   try { r.start(); } catch (e) {}
-  $('voiceBtn').classList.add('on'); $('voiceBtn').textContent = '⏹ أوقف'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]) + ' أو من أي موضع في المصحف');
+  $('voiceBtn').classList.add('on'); $('voiceBtn').querySelector('span').textContent = 'أوقف التسميع'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]) + ' أو من أي موضع في المصحف');
 }
 $('voiceBtn').onclick = () => { if (VZ.on) vStop('توقّف التسميع'); else vStart(); };
 
@@ -597,19 +610,31 @@ $('scrim').onclick = () => { closeSheet(); closePop(); };
 let sheetBack = null;
 const head = (t) => '<div class="sh">' + (sheetBack ? '<button class="x bk" data-back aria-label="رجوع"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>رجوع</button>' : '') + '<h2>' + t + '</h2><button class="x" data-close aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
 
+// أيقونات الواجهة
+const ic = (p) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>';
+const IC = {
+  book: '<path d="M3 5.5c3-1.6 6-1.6 9 0v13.5c-3-1.6-6-1.6-9 0z"/><path d="M21 5.5c-3-1.6-6-1.6-9 0v13.5c3-1.6 6-1.6 9 0z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" class="f"/><circle cx="4.5" cy="12" r="1.3" class="f"/><circle cx="4.5" cy="18" r="1.3" class="f"/>',
+  cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+  spk: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>',
+  chL: '<path d="M15 6l-6 6 6 6"/>', chD: '<path d="M6 9l6 6 6-6"/>',
+  dl: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>', ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>', star: '<path d="M12 2.5l2.6 3.2 4.1-.4-.4 4.1 3.2 2.6-3.2 2.6.4 4.1-4.1-.4L12 21.5l-2.6-3.2-4.1.4.4-4.1L2.5 12l3.2-2.6-.4-4.1 4.1.4z"/><circle cx="12" cy="12" r="3"/>',
+};
 async function sheetRiwayat() {
-  let h = head('اختر المصحف') + '<p class="note">يفتح التطبيق دائمًا على مصحف حفص. الروايات الأخرى ملوّنة بمواضع خلافها، وتُنزَّل مرة واحدة ثم تعمل دون اتصال.</p>';
-  for (const r of REG.extra || []) h += '<button class="rbtn wide' + (r.id === RWV.id ? ' sel' : '') + '" data-rw="' + r.id + '">' + esc(r.title) + '<small>' + esc(r.desc || '') + '</small></button>';
+  let h = '<div class="rws">' + head('اختر المصحف');
+  for (const r of REG.extra || []) { const m = r.title.match(/^(.*?)\s*\((.*)\)$/); h += '<button class="rwbn' + (r.id === RWV.id ? ' sel' : '') + '" data-rw="' + r.id + '"><b>' + esc(m ? m[1] : r.title) + '</b>' + (m ? '<span><i></i>' + esc(m[2]) + '<i></i></span>' : '') + '</button>'; }
   for (const q of REG.qurra) {
     h += '<div class="qrow"><b>' + esc(q.q) + '</b>';
     for (const r of q.r) {
-      if (r.status !== 'ready') { h += '<button class="rbtn off" disabled>' + esc(r.n) + '<small>قريبًا</small></button>'; continue; }
-      const saved = r.mushaf === 'base' || mushafCache[r.mushaf] || (await isSaved('data/m/' + r.mushaf + '.json'));
-      h += '<button class="rbtn' + (r.id === RWV.id ? ' sel' : '') + '" data-rw="' + r.id + '">' + esc(r.n) + '<small>' + esc(r.tag || '') + '</small><span class="dl">' + (saved ? 'جاهزة دون اتصال' : 'تُنزَّل عند الفتح') + '</span></button>';
+      if (r.status !== 'ready') { h += '<button class="rbtn off" disabled><span class="rn"><b>' + esc(r.n) + '</b><small>قريبًا</small></span></button>'; continue; }
+      const saved = r.mushaf === 'base' || mushafCache[r.mushaf] || (await isSaved('data/m/' + r.mushaf + '.json')), sel = r.id === RWV.id;
+      h += '<button class="rbtn' + (sel ? ' sel' : '') + (saved ? ' sv' : '') + '" data-rw="' + r.id + '" aria-label="' + esc(r.n + (saved ? '، جاهزة دون اتصال' : '، تُنزَّل عند الفتح')) + '"><span class="rn"><b>' + esc(r.n) + '</b>' + (sel ? '<small>' + (saved ? 'جاهزة دون اتصال' : 'تُنزَّل عند الفتح') + '</small>' : '') + '</span>' + ic(saved ? IC.ok : IC.dl) + '</button>';
     }
     h += '</div>';
   }
-  h += '<button class="opt" data-dlall><span>تنزيل كل الروايات الجاهزة للاستخدام دون اتصال</span><svg viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg></button>';
+  h += '<button class="dlall" data-dlall>' + ic(IC.dl) + '<span>تنزيل الروايات الجاهزة</span></button></div>';
   openSheet(h);
 }
 async function downloadAll() {
@@ -624,34 +649,42 @@ async function openRw(id) {
 }
 
 const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one') === 'long' ? 'one' : LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), shw: SHWON, tips: LS.get('tips', true), openTan: LS.get('openTan2', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
-const BGS = [['green', '#eef4f7', 'أزرق فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141a1e', 'ليلي']];
+const BGS = [['green', '#eef4f7', 'أزرق فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'عاجي'], ['night', '#141a1e', 'داكن']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
+let MENU_OPEN = 'about'; // القسم المفتوح في القائمة
+function reMenu() { const y = $('sheet').scrollTop; sheetMenu(); $('sheet').scrollTop = y; }
 function sheetMenu() { sheetBack = null;
-  const t = ACT[day()] || { r: [], m: [] };
-  let h = head('القائمة') + '<div class="mh"><div><b>الورد اليوم</b><span>' + ar(t.r.length) + ' صفحة · الختمة ' + ar(Math.round(KH.length / 6.04)) + '٪</span></div><button data-act="prog">التقدم</button><button data-act="marks">العلامات ' + ar(Object.keys(MK.marks).length) + '</button><button data-act="marks">الملاحظات ' + ar(Object.keys(MK.notes).length) + '</button></div>';
-  h += '<div class="grp"><h3>المصحف</h3>' +
-    '<label class="opt">إضافة الشواهد من الشاطبية والدرّة<input type="checkbox" data-set="shw"' + (SET.shw ? ' checked' : '') + '></label>' +
-    '<label class="opt">إظهار ألوان الخلاف<input type="checkbox" data-set="col"' + (SET.col ? ' checked' : '') + '></label>' +
-    '<label class="opt">تكبير الخط (يلتف النص مع الشاشة)<input type="checkbox" data-set="big"' + (SET.big ? ' checked' : '') + '></label>' +
-    '<div class="opt"><span>ترتيب الأسطر (مصحف حفص)</span><select data-layout>' + [['v1', 'طبعة المجمع ١٤٠٥'], ['v2', 'طبعة المجمع ١٤٢١'], ['flow', 'نص يلتف مع الشاشة']].filter(([k]) => k === 'flow' || (B.lines && B.lines[k])).map(([k, n]) => '<option value="' + k + '"' + (SET.layout === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
-    '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
-    '<div class="opt"><span>فتح نافذة الكلمة</span><select data-k="tap">' + [['one', 'نقرة واحدة'], ['off', 'إيقاف']].map(([k, n]) => '<option value="' + k + '"' + (SET.tap === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
-    '<div class="opt"><span>المظهر</span><select data-k="theme">' + [['manual', 'حسب الخلفية'], ['auto', 'تلقائي (حسب الجوال)']].map(([k, n]) => '<option value="' + k + '"' + (SET.theme === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
-    '<label class="opt">التنوين المتتابع كما في المطبوع (يحتاج خطًا يدعمه)<input type="checkbox" data-set="openTan"' + (SET.openTan ? ' checked' : '') + '></label>' +
-    '<label class="opt">تنبيه عند بداية الحزب وأرباعه<input type="checkbox" data-set="qAlert"' + (SET.qAlert ? ' checked' : '') + '></label>' +
-    '<label class="opt">نصيحة يومية<input type="checkbox" data-set="tips"' + (SET.tips ? ' checked' : '') + '></label>' +
-    '<label class="opt">تقليب الصفحة بلمس حافتي الشاشة<input type="checkbox" data-set="edge"' + (SET.edge ? ' checked' : '') + '></label>' +
-    '<div class="opt"><label style="display:flex;gap:8px;align-items:center">تقليب تلقائي<input type="checkbox" data-set="auto"' + (SET.auto ? ' checked' : '') + '></label><span>كل <select data-k="autoSec">' + [20, 30, 45, 60, 90, 120].map((n) => '<option value="' + n + '"' + (SET.autoSec == n ? ' selected' : '') + '>' + ar(n) + '</option>').join('') + '</select> ثانية</span></div>' +
-    '<label class="opt">إبقاء الشاشة مضيئة<input type="checkbox" data-set="wake"' + (SET.wake ? ' checked' : '') + '></label>' +
-    '<div class="opt"><span>لون الخلفية</span><span class="sw">' + BGS.map(([k, c, n]) => '<button aria-label="' + n + '" data-bg="' + k + '" class="' + (SET.bg === k ? 'on' : '') + '" style="background:' + c + '"></button>').join('') + '</span></div></div>';
+  const t = ACT[day()] || { r: [], m: [] }, pct = Math.round(KH.length / 6.04);
+  const chk = (k, label) => '<label class="opt">' + label + '<input type="checkbox" data-set="' + k + '"' + (SET[k] ? ' checked' : '') + '></label>';
+  const sec = (id, title, body) => { const o = MENU_OPEN === id; return '<div class="acc' + (o ? ' on' : '') + '"><button class="acch" data-acc="' + id + '" aria-expanded="' + o + '"><span>' + title + '</span>' + ic(o ? IC.chD : IC.chL) + '</button>' + (o ? '<div class="accb">' + body + '</div>' : '') + '</div>'; };
+  let h = '<div class="mn">' + head('القائمة');
+  h += '<button class="mcard" data-act="rw"><span class="mi">' + ic(IC.book) + '</span><span class="mtx"><b>القراءات العشر</b><small>اختيار الرواية وتنزيلها</small></span>' + ic(IC.chL) + '</button>';
+  h += '<div class="mh2"><div class="mh2t"><b>الورد اليوم</b><span>' + ar(t.r.length) + ' صفحة اليوم</span></div><div class="mbar"><i style="width:' + Math.min(100, pct) + '%"></i></div><div class="mpct">الختمة ' + ar(pct) + '٪</div>'
+    + '<div class="mh2b"><button data-act="prog">التقدم</button><button data-act="marks">العلامات<b>' + ar(Object.keys(MK.marks).length) + '</b></button><button data-act="marks">الملاحظات<b>' + ar(Object.keys(MK.notes).length) + '</b></button></div></div>';
+  h += '<div class="mgrid">' + [['search', IC.search, 'البحث'], ['idx', IC.list, 'الفهرس'], ['prog', IC.cal, 'الحفظ والنشاط'], ['mem', IC.spk, 'التسميع']].map(([k, i, n]) => '<button data-act="' + k + '"><span class="mi">' + ic(i) + '</span><b>' + n + '</b></button>').join('') + '</div>';
+  let qs = chk('shw', 'إضافة الشواهد من الشاطبية والدرّة') + chk('col', 'إظهار ألوان الخلاف') + chk('openTan', 'التنوين المتتابع كما في المطبوع (يحتاج خطًا يدعمه)')
+    + '<div class="opt"><span>فتح نافذة الكلمة</span><select data-k="tap">' + [['one', 'نقرة واحدة'], ['off', 'إيقاف']].map(([k, n]) => '<option value="' + k + '"' + (SET.tap === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>';
   if (RWV.mushaf !== 'base' && M.legend) {
     const C = { m: '#c000c0', b: '#1747c9', r: '#e00000', c: '#00a3cc', g: '#1a9e1a', l: '#3366ff', o: '#e06400', y: '#7a9e00', n: '#c000c0' };
-    h += '<div class="grp"><h3>مفتاح الألوان · ' + esc(RWV.n) + '</h3><div class="legend">' + Object.entries(M.legend).map(([k, t]) => '<span><i style="background:' + (C[k] || '#888') + '"></i>' + esc(t.split(':')[0]) + '</span>').join('') + '</div></div>';
+    qs += '<div class="opt" style="display:block"><span>مفتاح الألوان · ' + esc(RWV.n) + '</span><div class="legend">' + Object.entries(M.legend).map(([k, t]) => '<span><i style="background:' + (C[k] || '#888') + '"></i>' + esc(t.split(':')[0]) + '</span>').join('') + '</div></div>';
   }
-  h += '<div class="grp"><h3>التنقل</h3><button class="opt" data-act="rw">الروايات وتنزيلها</button><button class="opt" data-act="idx">الفهرس</button><button class="opt" data-act="search">البحث</button><button class="opt" data-act="marks">العلامات والملاحظات</button><button class="opt" data-act="prog">الحفظ والنشاط</button><button class="opt" data-act="tj">وضع التهجد</button><button class="opt" data-act="mem">التسميع</button><button class="opt" data-act="mushafs">المصاحف</button><button class="opt" data-act="about">عن المصحف</button><button class="opt" data-act="news">ما الجديد</button></div>';
-  h += '<div class="grp"><h3>عن المصحف</h3><div class="opt" style="display:block;line-height:1.8;font-size:14px">' + esc(RWV.title) + ' — النص كما رُسم في مصدره دون تغيير، والألوان كما في مفتاحه. البيانات مسودة لم تعتمدها اللجنة العلمية بعد.<br><span class="mt">' + esc(RWV.plain ? 'النص: مشروع تنزيل' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل · الفرش: مصحف الراجح' : M.foot || '') + '</span></div></div>';
-  openSheet(h);
+  qs += '<button class="opt" data-act="mushafs"><span>المصاحف ومصادرها</span>' + ic(IC.chL) + '</button>';
+  h += sec('qr', 'القراءات والشواهد', qs);
+  h += sec('look', 'الخط والمظهر',
+    '<div class="opt"><span>ترتيب الأسطر</span><select data-layout>' + [['v1', 'طبعة المجمع ١٤٠٥'], ['v2', 'طبعة المجمع ١٤٢١'], ['flow', 'نص يلتف مع الشاشة']].filter(([k]) => k === 'flow' || (B.lines && B.lines[k])).map(([k, n]) => '<option value="' + k + '"' + (SET.layout === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<div class="opt"><span>نوع الخط</span><select data-font>' + [['AM', 'أميري'], ['sys', 'خط الجهاز']].map(([k, n]) => '<option value="' + k + '"' + (SET.font === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    chk('big', 'تكبير الخط (يلتف النص مع الشاشة)') +
+    '<div class="opt"><span>المظهر</span><select data-k="theme">' + [['manual', 'حسب الخلفية'], ['auto', 'تلقائي (حسب الجوال)']].map(([k, n]) => '<option value="' + k + '"' + (SET.theme === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
+    '<div class="opt bgo"><span>لون الخلفية</span><div class="swl">' + BGS.map(([k, c, n]) => '<button data-bg="' + k + '" class="' + (SET.bg === k ? 'on' : '') + '" aria-label="' + n + '"><i style="background:' + c + '">' + (SET.bg === k ? ic(IC.ok) : '') + '</i><span>' + n + '</span></button>').join('') + '</div></div>');
+  h += sec('flip', 'تقليب الصفحات والشاشة', chk('edge', 'تقليب الصفحة بلمس حافتي الشاشة') +
+    '<div class="opt"><label style="display:flex;gap:8px;align-items:center">تقليب تلقائي<input type="checkbox" data-set="auto"' + (SET.auto ? ' checked' : '') + '></label><span>كل <select data-k="autoSec">' + [20, 30, 45, 60, 90, 120].map((n) => '<option value="' + n + '"' + (SET.autoSec == n ? ' selected' : '') + '>' + ar(n) + '</option>').join('') + '</select> ثانية</span></div>' +
+    chk('wake', 'إبقاء الشاشة مضيئة') + '<button class="opt" data-act="tj"><span>وضع التهجد (تمرير متصل)</span>' + ic(IC.chL) + '</button>');
+  h += sec('alert', 'التنبيهات', chk('qAlert', 'تنبيه عند بداية الحزب وأرباعه') + chk('tips', 'نصيحة يومية'));
+  const tt = RWV.title.match(/^(.*?)\s*\((.*)\)$/), sub = tt ? tt[2] : RWV.mushaf === 'base' && !RWV.plain ? 'حفص وعليه الخلاف' : RWV.q ? 'قراءة ' + RWV.q : '';
+  h += sec('about', 'عن المصحف', '<div class="abt"><div class="abt1">' + esc(tt ? tt[1] : RWV.title) + '</div>' + (sub ? '<div class="abt2">' + esc(sub) + '</div>' : '') + '<p>النص كما رُسم في مصدره، والألوان كما في مفتاحه.</p><p class="mt">' + esc(RWV.plain ? 'النص: مشروع تنزيل' : RWV.mushaf === 'base' ? 'النص: مشروع تنزيل · الفرش: مصحف الراجح' : M.foot || '') + ' · مسودة لم تعتمدها اللجنة العلمية بعد.</p><button class="btn o" data-act="about">المصدر والمنهج</button></div>');
+  h += '<button class="acch solo" data-act="news"><span>ما الجديد</span>' + ic(IC.chL) + '</button>';
+  openSheet(h + '</div>');
 }
 $('sheet').addEventListener('click', (e) => {
   const t = e.target;
@@ -666,8 +699,9 @@ $('sheet').addEventListener('click', (e) => {
   const tb = t.closest('[data-tab]'); if (tb) return sheetIndex(tb.dataset.tab);
   const rg = t.closest('[data-rwgo]'); if (rg && rg.dataset.rwgo !== RWV.id) { st.page = +rg.dataset.go; closeSheet(); return openRw(rg.dataset.rwgo); }
   const g = t.closest('[data-go]'); if (g) { closeSheet(); if (st.mode === 'tj') { st.page = +g.dataset.go; render(); scrollTo(0, 0); } else go(+g.dataset.go); return; }
-  const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
-  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if ($('sheet').querySelector('.mh')) sheetBack = sheetMenu; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
+  const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return reMenu(); }
+  const ac = t.closest('[data-acc]'); if (ac) { MENU_OPEN = MENU_OPEN === ac.dataset.acc ? null : ac.dataset.acc; return reMenu(); }
+  const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if ($('sheet').querySelector('.mn') && k !== 'rw') sheetBack = sheetMenu; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
 $('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k === 'openTan' ? 'openTan2' : k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'shw') { SHWON = SET.shw; render(); } if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
@@ -722,31 +756,49 @@ const skel = (w) => String(w).replace(/[ً-ٰٟۖ-ۭـ]/g, '').replace(/[اٱأ�
 function hl(text, word) { const k = skel(word); return esc(text).replace(/﴿([^﴾]+)﴾/g, (m, t) => (t.split(/\s*[،,]\s*/).some((p) => skel(p.replace(/\s+/g, '')) === k || p.split(/\s+/).some((q) => skel(q) === k)) ? '<b>﴿' + t + '﴾</b>' : m)); }
 function closePop() { pop.classList.remove('show'); pop.dataset.w = ''; document.querySelectorAll('.v.sel,.u.sel,.qr.sel').forEach((e) => e.classList.remove('sel')); }
 function showPop(h, w) { pop.innerHTML = '<div class="grab"></div>' + h; pop.dataset.w = w || ''; pop.classList.add('show'); pop.scrollTop = 0; }
+let POPTAB = 'v';
+const ORD = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر', 'الحادي عشر', 'الثاني عشر'];
+const vCard = (i, body) => '<div class="vj"><span class="vl">الوجه ' + (ORD[i] || ar(i + 1)) + '</span><div class="vc">' + body + '</div></div>';
+// مذكرة الموضع الملوّن من أسفل الصفحة: أوجه القراءة، والشاهد من الشاطبية والدرّة
+function wordSheet(k, text, body, warn, w) {
+  const [s, a] = k.split(':');
+  let h = '<div class="psh"><div><h2>شواهد القراءات</h2><div class="ref">' + B.suras[s - 1].name + ' · الآية ' + ar(a) + (RWV.mushaf !== 'base' && M.count ? ' (' + esc(M.count) + ')' : '') + '</div></div><button class="x" data-pclose aria-label="إغلاق">' + ic(IC.x) + '</button></div>';
+  h += '<div class="seg" role="tablist"><button role="tab" data-pt="v"' + (POPTAB === 'v' ? ' class="on"' : '') + '>أوجه القراءة</button><button role="tab" data-pt="s"' + (POPTAB === 's' ? ' class="on"' : '') + '>الشاهد</button></div>';
+  h += '<div class="pv" data-pv="v"' + (POPTAB === 'v' ? '' : ' hidden') + '>' + body + '</div><div class="pv" data-pv="s"' + (POPTAB === 's' ? '' : ' hidden') + '>' + shwWord(k, text) + '</div>';
+  h += '<div class="pfoot"><i></i><span>قيد المراجعة العلمية</span><i></i></div><p class="pwarn">' + esc(warn) + '</p>';
+  showPop(h, w);
+}
 function openWord(el) {
   closePop();
-  const [s, a] = el.dataset.k.split(':');
+  const k = el.dataset.k;
   if (el.dataset.q) {
-    const ids = M.ws[el.dataset.w] || []; el.classList.add('sel');
-    let h = '<h2>' + esc(el.textContent) + '</h2><div class="ref">سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + (M.count ? ' (' + esc(M.count) + ')' : '') + '</div>';
-    if (M.main) h += '<div class="rd"><div class="qt">﴿' + esc(el.textContent) + '﴾</div><div class="who">' + esc(M.main) + '</div></div>';
-    for (const i of ids) { const x = M.sites[i]; h += '<div class="rd"><div class="w">﴿' + esc(x.w) + '﴾</div><div class="who">' + esc(x.r) + '</div>' + (x.n ? '<div class="nt">' + esc(x.n) + '</div>' : '') + '</div>' + (x.st === 'multiple' ? '<div class="chk">الموضع يحتاج مراجعة</div>' : '') + reviewRow(x.id); }
-    return showPop(h + '<div class="warn">' + esc(M.warn || 'مسودة لم يعتمدها المراجع العلمي بعد.') + '</div>', el.dataset.w);
+    const ids = M.ws[el.dataset.w] || []; el.classList.add('sel'); let n = 0, h = '';
+    if (M.main) h += vCard(n++, '<div class="w">﴿' + esc(el.textContent) + '﴾</div><div class="who">' + esc(M.main) + '</div>');
+    for (const i of ids) { const x = M.sites[i]; h += vCard(n++, '<div class="w">﴿' + esc(x.w) + '﴾</div><div class="who">' + esc(x.r) + '</div>' + (x.n ? '<div class="nt">' + esc(x.n) + '</div>' : '')) + (x.st === 'multiple' ? '<div class="chk">الموضع يحتاج مراجعة</div>' : '') + reviewRow(x.id); }
+    return wordSheet(k, el.textContent, h, M.warn || 'مسودة لم يعتمدها المراجع العلمي بعد.', el.dataset.w);
   }
   const ids = B.wordSites[el.dataset.w] || [], uls = B.wordUsul[el.dataset.w] || [];
   const same = ids.length ? [...document.querySelectorAll('.v')].filter((e) => (B.wordSites[e.dataset.w] || []).some((x) => ids.includes(x)) && e.dataset.k === el.dataset.k) : [el];
   same.forEach((e) => e.classList.add('sel'));
-  let h = '<h2>' + esc(same.map((e) => e.textContent).join(' ')) + '</h2><div class="ref">سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + '</div>';
+  let h = '';
   for (const id of ids) { const x = B.sites[id]; if (x.sc) h += '<div class="ref">الموضع ' + esc(x.sc) + '</div>';
-    for (const [w, who, nt] of x.v) h += '<div class="rd"><div class="w">﴿' + esc(w) + '﴾' + (who === 'الباقون' ? '<span class="tag">الباقون</span>' : '') + '</div><div class="who">' + esc(who) + '</div>' + (nt ? '<div class="nt">' + esc(nt) + '</div>' : '') + '</div>';
+    x.v.forEach(([w, who, nt], i) => { h += vCard(i, '<div class="w">﴿' + esc(w) + '﴾' + (who === 'الباقون' ? '<span class="tag">الباقون</span>' : '') + '</div><div class="who">' + esc(who) + '</div>' + (nt ? '<div class="nt">' + esc(nt) + '</div>' : '')); });
     if (x.st === 'shifted' || x.st === 'multiple') h += '<div class="chk">الموضع يحتاج مراجعة</div>'; h += reviewRow(x.id); }
   if (uls.length) { h += '<div class="uh">الأصول</div>'; for (const li of uls) { const [, hd, text] = B.usulLines[li]; h += '<div class="ul"><span class="hd2">' + esc(hd) + ':</span> ' + hl(text, el.textContent) + '</div>'; } }
-  showPop(h + '<div class="warn">مسودة مستخرجة من مصحف الراجح، لم يعتمدها المراجع العلمي بعد.</div>', el.dataset.w);
+  wordSheet(k, same.map((e) => e.textContent).join(' '), h, 'مسودة مستخرجة من مصحف الراجح، لم يعتمدها المراجع العلمي بعد.', el.dataset.w);
 }
+pop.addEventListener('click', (ev) => {
+  if (ev.target.closest('[data-pclose]')) return closePop();
+  const tb = ev.target.closest('[data-pt]'); if (!tb) return;
+  POPTAB = tb.dataset.pt; pop.querySelectorAll('[data-pt]').forEach((b) => b.classList.toggle('on', b === tb));
+  pop.querySelectorAll('[data-pv]').forEach((v) => { v.hidden = v.dataset.pv !== POPTAB; });
+  if (POPTAB === 's') requestAnimationFrame(() => pop.querySelectorAll('.sht').forEach((e) => { let f = 18; e.style.fontSize = f + 'px'; while (e.scrollWidth > e.clientWidth && f > 10) { f -= 0.5; e.style.fontSize = f + 'px'; } }));
+});
 function openUsul() { let h = '<h2 style="font-family:AM;font-size:22px;color:#1b4357">أصول الصفحة ' + ar(st.page) + '</h2>'; for (const [k, v] of Object.entries(B.usul[st.page])) h += '<h4>' + esc(k) + '</h4>' + v.map((x) => '<p>' + esc(x) + '</p>').join(''); showPop(h + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 function openQUsul() { const md = (t) => t.split(/\n\n+/).map((b) => (b.startsWith('## ') ? '<h4>' + esc(b.slice(3)) + '</h4>' : b.startsWith('# ') ? '<h4>' + esc(b.slice(2)) + '</h4>' : '<p>' + esc(b).replace(/\n/g, '<br>') + '</p>')).join(''); showPop(M.usul.map(md).join('') + '<div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); }
 document.addEventListener('click', (ev) => {
   const t = ev.target; if (pop.contains(t) || $('sheet').contains(t)) return;
-  const qr = t.closest('.qr'); if (qr) { closePop(); qr.classList.add('sel'); const [s, a] = qr.dataset.k.split(':'); showPop('<h2>' + esc(qr.textContent) + '</h2><div class="ref">سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + '</div><div class="rd"><div class="who">' + esc(RWV.n) + '</div><div class="nt">الكلمة ملوّنة في المصحف المطبوع لمخالفتها رواية حفص، وليس عليها ملاحظة في الهامش.</div></div><div class="warn">مسودة لم يعتمدها المراجع العلمي بعد.</div>'); return; }
+  const qr = t.closest('.qr'); if (qr) { closePop(); qr.classList.add('sel'); wordSheet(qr.dataset.k, qr.textContent, vCard(0, '<div class="w">﴿' + esc(qr.textContent) + '﴾</div><div class="who">' + esc(RWV.n) + '</div><div class="nt">الكلمة ملوّنة في المصحف المطبوع لمخالفتها رواية حفص، وليس عليها ملاحظة في الهامش.</div>'), 'مسودة لم يعتمدها المراجع العلمي بعد.'); return; }
   const w = t.closest('.v,.u'); if (w) { if (SET.tap === 'one') openWord(w); return; }
   if (t.id === 'usb') return openUsul(); if (t.id === 'qusb') return openQUsul();
   const hd = t.closest('.hid'); if (hd) { reveal(hd.dataset.k); return; }
@@ -881,7 +933,7 @@ const qName = (k) => (k % 4 === 0 ? 'الحزب ' + ar(k / 4 + 1) : ['', 'ربع
 function decoratePage() {
   const hd = document.querySelector('#page .hd'); if (!hd) return;
   const q = RWV.mushaf === 'base' || RWV.plain ? quartersOn(st.page) : [];
-  if (q.length) { const s = document.createElement('span'); s.className = 'qtr'; s.textContent = '۞ ' + q.map(qName).join(' · '); hd.appendChild(s); if (SET.qAlert) toast('بداية ' + qName(q[0])); }
+  if (q.length) { const s = document.createElement('span'); s.className = 'qtr'; s.textContent = q.map(qName).join(' · '); hd.appendChild(s); if (SET.qAlert) toast('بداية ' + qName(q[0])); }
   document.querySelector('#page').classList.toggle('marked', !!MK.marks[mkKey()]);
 }
 const NEWS = [
