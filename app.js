@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v74';
+const CACHE = 'q10-data-v75';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -420,7 +420,7 @@ const vLev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) =
 const vPre = (h, e) => (h.length === e.length + 1 && h.slice(1) === e && 'وفبلك'.includes(h[0])) || (e.length === h.length + 1 && e.slice(1) === h && 'وفبلك'.includes(e[0])); // نقص حرف عطف أو جر: خطأ
 // صورة مخففة: بلا «ال» في أولها ولا ألف التنوين أو التاء المربوطة في آخرها (المتعرّف يخطئ فيهما كثيرًا: صبيًّا ← الصبيه)
 const vLoose = (x) => x.replace(/^ال(?=..)/, '').replace(/(?<=..)[اه]$/, '');
-const vEq = (h, e) => { if (h === e) return true; if (vPre(h, e)) return false; const L = Math.max(h.length, e.length);
+const vEq = (h, e) => { if (h === e) return true; if (!h || !e || Math.abs(h.length - e.length) > 4) return false; if (vPre(h, e)) return false; const L = Math.max(h.length, e.length);
   if (L >= 4 && vLev(h, e) <= (L >= 6 ? 2 : 1)) return true;
   const a = vLoose(h), b = vLoose(e); return a.length >= 3 && b.length >= 3 && vLev(a, b) <= (Math.max(a.length, b.length) >= 5 ? 1 : 0); };
 // تشابه أبعد: يُقبل به خطأ المتعرّف في كلمة واحدة إذا صحّ ما بعدها
@@ -452,12 +452,22 @@ function vTurn(carry) {
   if (!VZ.key) { vStop('لا توجد آيات مخفية في الصفحة ' + ar(st.page)); return false; }
   vSay('الصفحة ' + ar(st.page) + ' — تابع القراءة'); vScroll(); return true;
 }
-function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); vScroll(); } }
+// كشف الكلمات أثناء القراءة دون إعادة بناء الصفحة كلها (إعادة البناء مع كل كلمة تُبطئ الجوال)
+function vPart(key, n) {
+  const o = st.part; if (o && o.key === key && o.n === n) return; if (!o && !n) return;
+  st.part = n ? { key, n } : null;
+  const sp = document.querySelectorAll('#page .lines .hid[data-k="' + key + '"], #page .lines .vshow[data-k="' + key + '"]');
+  if (!sp.length) { render(); vScroll(); return; }
+  const lo = vSpan(key, vExp(key).length)[0];
+  sp.forEach((e, x) => { const show = lo + x < n; e.classList.toggle('hid', !show); e.classList.toggle('vshow', show); });
+  vScroll();
+}
 // ===== تحديد موضع القراءة من المصحف كله: يبدأ القارئ من أي آية فننتقل إليها =====
 let VF = null; // كلمات المصحف مسطّحة: w الكلمة، ai رقم الآية، wi ترتيبها في الآية، st أول كلمة لكل آية
 function vFlat() {
   if (VF) return VF; VF = { w: [], ai: [], wi: [], st: [] };
   for (let i = 0; i < B.ayahs.length; i++) { const [s, a] = B.ayahs[i]; VF.st.push(VF.w.length); vExp(s + ':' + a).forEach((x, k) => { VF.w.push(x); VF.ai.push(i); VF.wi.push(k); }); }
+  VF.ix = new Map(); VF.w.forEach((x, q) => { const k = vLoose(x); if (!VF.ix.has(k)) VF.ix.set(k, []); VF.ix.get(k).push(q); }); // فهرس للبحث السريع
   return VF;
 }
 function vJump(q) {
@@ -506,12 +516,13 @@ function vLocate(heard, final) {
   const cur = F.st[ayahIdx.get(VZ.key)] + VZ.base;
   if (at(cur)) { VZ.pos = j; VZ.loc = false; return true; } // يقرأ من الموضع المنتظر نفسه
   for (let q = cur - 1; q >= 0 && q >= cur - 150; q--) if (at(q)) { VZ.pos = j; VZ.loc = false; vJump(q); return true; } // أعاد من قبله قليلًا
-  for (let q = 0; q < F.w.length; q++) if (vEq(heard[j], F.w[q]) && at(q)) { hits.push(q); if (hits.length > 40) break; }
-  if (!hits.length && n >= 4) { // «يا يحيى» تُكتب في المصحف كلمة واحدة «يٰيحيى»: نجرّب دمج أول كلمتين
-    const h0 = heard; heard = h0.slice(0, j).concat([h0[j] + h0[j + 1]], h0.slice(j + 2));
-    for (let q = 0; q < F.w.length; q++) if (vEq(heard[j], F.w[q]) && at(q)) { hits.push(q); if (hits.length > 40) break; }
-    heard = h0; }
-  if (!hits.length) { if (n >= 6 || final) { VZ.pos = j + 1; vSay('لم أتعرّف على الموضع بعد… تابع القراءة'); } return null; }
+  const find = (full) => { const cand = full ? F.w.keys() : (F.ix.get(vLoose(heard[j])) || []);
+    for (const q of cand) if ((!full || vEq(heard[j], F.w[q])) && at(q)) { hits.push(q); if (hits.length > 40) break; } };
+  const merged = () => { const h0 = heard; heard = h0.slice(0, j).concat([h0[j] + h0[j + 1]], h0.slice(j + 2)); return h0; }; // «يا يحيى» = «يٰيحيى»
+  find(false);
+  if (!hits.length && n >= 4) { const h0 = merged(); find(false); heard = h0; }
+  if (!hits.length && (n >= 5 || final)) { find(true); if (!hits.length && n >= 4) { const h0 = merged(); find(true); heard = h0; } } // البحث التقريبي في المصحف كله أبطأ: عند الحاجة فقط
+  if (!hits.length) { if ((n >= 6 || final) && !(n < 5 && !final)) { VZ.pos = j + 1; vSay('لم أتعرّف على الموضع بعد… تابع القراءة'); } return null; }
   if (hits.length > 1 && n < 10 && !final) { vSay('أستمع… أحدّد الموضع'); return null; } // عبارة متكررة: ننتظر كلمات أكثر
   const pc = pageFirst[st.page - 1]; hits.sort((x, y) => Math.abs(F.ai[x] - pc) - Math.abs(F.ai[y] - pc));
   VZ.pos = j; VZ.loc = false; vJump(hits[0]); return true;
@@ -550,6 +561,7 @@ function vStart() {
   if (!SR) { toast('متصفحك لا يدعم التعرّف على الصوت، جرّب متصفح Chrome', 3000); return; }
   if (RWV.mushaf !== 'base') { toast('التسميع بالصوت متاح الآن في مصحف حفص', 2500); return; }
   const k = vNext(); if (!k) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
+  setTimeout(vFlat, 0); // تجهيز فهرس المصحف قبل أن يبدأ الكلام
   if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true; VZ.loc = true; vScroll();
   const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r;
   r.onresult = (ev) => {
