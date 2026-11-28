@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v66';
+const CACHE = 'q10-data-v67';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -101,7 +101,8 @@ const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' 
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
 function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
 // ===== الاستماع لحفص (خليفة الطنيجي، ملف لكل آية من everyayah.com): شريط أسفل الصفحة — السورة، من آية إلى آية، عدد التكرار، تشغيل/إيقاف =====
-const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0 };
+const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0, rate: LS.get('arate', 1) };
+AUD.a.preservesPitch = true; AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.addEventListener('play', () => { AUD.a.playbackRate = AUD.rate; });
 // القارئ: خليفة الطنيجي، وإن تعذّر ملف آية عنده شُغّلت الآية نفسها بصوت العفاسي
 const AUD_DIR = 'khalefa_al_tunaiji_64kbps', AUD_FB = 'Alafasy_128kbps';
 const audUrl = (s, a, d) => 'https://everyayah.com/data/' + (d || AUD_DIR) + '/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
@@ -140,12 +141,14 @@ function audUI() {
 function audInit() {
   const bar = document.createElement('div'); bar.className = 'aud'; bar.id = 'aud';
   bar.innerHTML = '<button id="aP" class="ap" aria-label="تشغيل">▶</button>'
-    + '<label><small>السورة</small><select id="aS">' + B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + ar(i + 1) + ' ' + x.name + '</option>').join('') + '</select></label>'
+    + '<label><small>السورة · الطنيجي</small><select id="aS">' + B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + ar(i + 1) + ' ' + x.name + '</option>').join('') + '</select></label>'
     + '<label><small>من</small><select id="aF"></select></label><label><small>إلى</small><select id="aT"></select></label>'
     + '<label><small>التكرار</small><select id="aR">' + [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option></select></label>'
+    + '<label><small>السرعة</small><select id="aV">' + [0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => '<option value="' + v + '"' + (v === AUD.rate ? ' selected' : '') + '>' + (v === 1 ? 'عادية' : '×' + ar(String(v).replace('.', '٫'))) + '</option>').join('') + '</select></label>'
     + '<span class="aw"><small>القارئ</small>خليفة الطنيجي · حفص</span>';
   $('bot').prepend(bar);
   $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(AUD.s + ':' + AUD.f); };
+  $('aV').onchange = (e) => { AUD.rate = +e.target.value; LS.set('arate', AUD.rate); AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.playbackRate = AUD.rate; };
   $('aS').onchange = (e) => { audStop(); AUD.s = +e.target.value; AUD.f = 1; AUD.t = B.suras[AUD.s - 1].ayahs; audUI(); };
   $('aF').onchange = (e) => { AUD.f = +e.target.value; if (AUD.t < AUD.f) AUD.t = AUD.f; audUI(); };
   $('aT').onchange = (e) => { AUD.t = +e.target.value; if (AUD.f > AUD.t) AUD.f = AUD.t; audUI(); };

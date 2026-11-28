@@ -219,3 +219,4 @@ body.lock{overflow:hidden;overscroll-behavior:none}
 .sur span{position:relative;z-index:1;display:inline-block;min-width:30%;padding:0 .7em;background:var(--pg);border-inline:1px solid var(--fr);border-radius:40%/50%}
 .lines .sur{width:94%;padding:0;display:flex;align-items:center;justify-content:center}
 body.bg-night .sur::before,body.bg-night .sur::after{opacity:.75}
+@media (max-width:480px){.aud{gap:4px}.aud #aS{max-width:104px}.aud select{padding:0 2px;font-size:14px}.aud .aw{display:none}}
