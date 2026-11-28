@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v79';
+const CACHE = 'q10-data-v80';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -114,9 +114,20 @@ function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToa
 // ===== الاستماع لحفص (خليفة الطنيجي، ملف لكل آية من everyayah.com): شريط أسفل الصفحة — السورة، من آية إلى آية، عدد التكرار، تشغيل/إيقاف =====
 const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0, rate: LS.get('arate', 1) };
 AUD.a.preservesPitch = true; AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.addEventListener('play', () => { AUD.a.playbackRate = AUD.rate; });
-// القارئ: خليفة الطنيجي، وإن تعذّر ملف آية عنده شُغّلت الآية نفسها بصوت العفاسي
-const AUD_DIR = 'khalefa_al_tunaiji_64kbps', AUD_FB = 'Alafasy_128kbps';
-const audUrl = (s, a, d) => 'https://everyayah.com/data/' + (d || AUD_DIR) + '/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
+// القراء (رواية حفص، ملف لكل آية من everyayah.com؛ أسماء المجلدات كما في https://everyayah.com/data/). الافتراضي خليفة الطنيجي،
+// وإن تعذّر ملف آية عند القارئ المختار شُغّلت الآية نفسها بصوت العفاسي (أو الطنيجي إن كان المختار العفاسي)
+const QARIS = [['khalefa_al_tunaiji_64kbps', 'خليفة الطنيجي'], ['Alafasy_128kbps', 'مشاري العفاسي'], ['Husary_128kbps', 'محمود خليل الحصري'], ['Husary_Muallim_128kbps', 'الحصري (المعلّم)'],
+  ['Minshawy_Murattal_128kbps', 'محمد صديق المنشاوي (مرتل)'], ['Minshawy_Mujawwad_192kbps', 'المنشاوي (مجوّد)'], ['Abdul_Basit_Murattal_192kbps', 'عبد الباسط عبد الصمد (مرتل)'], ['Abdul_Basit_Mujawwad_128kbps', 'عبد الباسط (مجوّد)'],
+  ['Mohammad_al_Tablaway_128kbps', 'محمد محمود الطبلاوي'], ['Mustafa_Ismail_48kbps', 'مصطفى إسماعيل'], ['Abdurrahmaan_As-Sudais_192kbps', 'عبد الرحمن السديس'], ['Saood_ash-Shuraym_128kbps', 'سعود الشريم'],
+  ['MaherAlMuaiqly128kbps', 'ماهر المعيقلي'], ['Ghamadi_40kbps', 'سعد الغامدي'], ['Abu_Bakr_Ash-Shaatree_128kbps', 'أبو بكر الشاطري'], ['Yasser_Ad-Dussary_128kbps', 'ياسر الدوسري'],
+  ['Muhammad_Ayyoub_128kbps', 'محمد أيوب'], ['Hudhaify_128kbps', 'علي الحذيفي'], ['Muhammad_Jibreel_128kbps', 'محمد جبريل'], ['Nasser_Alqatami_128kbps', 'ناصر القطامي'],
+  ['Abdullah_Basfar_192kbps', 'عبد الله بصفر'], ['Hani_Rifai_192kbps', 'هاني الرفاعي'], ['Ahmed_ibn_Ali_al-Ajamy_128kbps_ketaballah.net', 'أحمد العجمي'], ['Fares_Abbad_64kbps', 'فارس عباد'],
+  ['Salah_Al_Budair_128kbps', 'صلاح البدير'], ['Khaalid_Abdullaah_al-Qahtaanee_192kbps', 'خالد القحطاني'], ['Abdullah_Matroud_128kbps', 'عبد الله المطرود'], ['Muhsin_Al_Qasim_192kbps', 'محسن القاسم'],
+  ['Salaah_AbdulRahman_Bukhatir_128kbps', 'صلاح بو خاطر'], ['Ali_Jaber_64kbps', 'علي جابر']];
+AUD.q = QARIS.some((x) => x[0] === LS.get('aqari', '')) ? LS.get('aqari', '') : QARIS[0][0];
+const qariName = () => QARIS.find((x) => x[0] === AUD.q)[1];
+const AUD_FB = () => (AUD.q === 'Alafasy_128kbps' ? 'khalefa_al_tunaiji_64kbps' : 'Alafasy_128kbps');
+const audUrl = (s, a, d) => 'https://everyayah.com/data/' + (d || AUD.q) + '/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
 function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } audUI(); }
 function audOne(k) {
   const [s, a] = k.split(':').map(Number); AUD.k = k; AUD.fb = false; AUD.a.src = audUrl(s, a);
@@ -130,7 +141,7 @@ function audPlay(k) {
   AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(k);
 }
 function audStop() { AUD.a.pause(); AUD.k = null; audMark(); }
-AUD.a.addEventListener('error', () => { if (!AUD.k || AUD.fb) { if (AUD.k) { toast('تعذّر تشغيل الصوت'); audStop(); } return; } const [s, a] = AUD.k.split(':').map(Number); AUD.fb = true; AUD.a.src = audUrl(s, a, AUD_FB); AUD.a.play().catch(() => {}); });
+AUD.a.addEventListener('error', () => { if (!AUD.k || AUD.fb) { if (AUD.k) { toast('تعذّر تشغيل الصوت'); audStop(); } return; } const [s, a] = AUD.k.split(':').map(Number); AUD.fb = true; AUD.a.src = audUrl(s, a, AUD_FB()); AUD.a.play().catch(() => {}); });
 AUD.a.addEventListener('ended', () => {
   if (!AUD.k) return; const [s, a] = AUD.k.split(':').map(Number);
   if (a < AUD.t) return audOne(s + ':' + (a + 1));
@@ -153,7 +164,7 @@ function audInit() {
   const bar = document.createElement('div'); bar.className = 'aud'; bar.id = 'aud';
   const sel = (id, opts) => '<span class="sl"><select id="' + id + '">' + opts + '</select></span>';
   bar.innerHTML = '<div class="ar1"><label><small>السورة</small>' + sel('aS', B.suras.map((x, i) => '<option value="' + (i + 1) + '">' + x.name + '</option>').join('')) + '</label>'
-    + '<label><small>القارئ الصوتي</small>' + sel('aQ', '<option>الطنيجي</option>') + '</label></div>'
+    + '<label><small>القارئ الصوتي</small>' + sel('aQ', QARIS.map(([d, n]) => '<option value="' + d + '"' + (d === AUD.q ? ' selected' : '') + '>' + n + '</option>').join('')) + '</label></div>'
     + '<div class="ar2"><button id="aP" class="ap" aria-label="تشغيل"></button>'
     + '<label><small>من</small>' + sel('aF', '') + '</label><label><small>إلى</small>' + sel('aT', '') + '</label>'
     + '<label><small>التكرار</small>' + sel('aR', [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option>') + '</label>'
@@ -161,7 +172,8 @@ function audInit() {
   $('bot').prepend(bar);
   $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(AUD.s + ':' + AUD.f); };
   $('aV').onchange = (e) => { AUD.rate = +e.target.value; LS.set('arate', AUD.rate); AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.playbackRate = AUD.rate; };
-  $('aS').onchange = (e) => { audStop(); AUD.s = +e.target.value; AUD.f = 1; AUD.t = B.suras[AUD.s - 1].ayahs; audUI(); };
+  $('aS').onchange = (e) => { const v = +e.target.value; AUD.s = v; AUD.f = 1; AUD.t = B.suras[v - 1].ayahs; audStop(); };
+  $('aQ').onchange = (e) => { const k = AUD.k; AUD.q = e.target.value; LS.set('aqari', AUD.q); if (k) { audStop(); audOne(k); } toast('القارئ: ' + qariName()); };
   $('aF').onchange = (e) => { AUD.f = +e.target.value; if (AUD.t < AUD.f) AUD.t = AUD.f; audUI(); };
   $('aT').onchange = (e) => { AUD.t = +e.target.value; if (AUD.f > AUD.t) AUD.f = AUD.t; audUI(); };
   $('aR').onchange = (e) => { AUD.rep = +e.target.value; if (AUD.k) AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; };
@@ -170,7 +182,7 @@ function audInit() {
 function ayahSheet(k, stopsOnly) {
   const [s, a] = k.split(':').map(Number); const cur = stopAt(k), shw = !stopsOnly && shwOf(k);
   sheetBack = stopsOnly && shwOf(k) ? () => ayahSheet(k, false) : null;
-  let h = head((shw ? 'سورة ' : 'موقف عند سورة ') + B.suras[s - 1].name + ' · الآية ' + ar(a)) + (shw ? shwHTML(k) : '') + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (خليفة الطنيجي، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '');
+  let h = head((shw ? 'سورة ' : 'موقف عند سورة ') + B.suras[s - 1].name + ' · الآية ' + ar(a)) + (shw ? shwHTML(k) : '') + (RWV.id === 'hafs' ? '<div class="grp"><h3>الاستماع (' + esc(qariName()) + '، رواية حفص)</h3><button class="opt" data-play="' + k + '"><span>▶ استمع من هذه الآية</span></button>' + (AUD.k ? '<button class="opt" data-play="stop"><span>■ إيقاف التلاوة</span></button>' : '') + '</div>' : '');
   if (shw) { return openSheet(h + '<button class="btn stpbtn" data-stopsheet="' + k + '">' + (cur ? 'موقف «' + esc(sName(cur)) + '» هنا · تعديل' : 'حفظ موقف هنا') + '</button>'); }
   h += '<div class="grp"><h3>اختر نوع الموقف</h3>';
   for (const [id, nm] of SKINDS) h += '<button class="opt" data-setstop="' + id + '|' + k + '"><span><i class="sdot" style="background:' + sCol(id) + '"></i>' + nm + '</span><span class="mt">' + (STOPS[id] ? (cur === id ? 'هنا' : 'يُنقل إلى هنا') : '') + '</span></button>';
