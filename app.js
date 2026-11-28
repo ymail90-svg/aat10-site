@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v72';
+const CACHE = 'q10-data-v73';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -417,7 +417,14 @@ const vNorm = (w) => w.replace(/ىٰ/g, 'ى').replace(/وٰ/g, 'ا').replace(/ٰ
   .replace(/ء/g, '').replace(/ة/g, 'ه').replace(/[^ء-ي]/g, '');
 const vLev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
-const vEq = (h, e) => { if (h === e) return true; if ((h.length === e.length + 1 && h.slice(1) === e && 'وفبلك'.includes(h[0])) || (e.length === h.length + 1 && e.slice(1) === h && 'وفبلك'.includes(e[0]))) return false; const L = Math.max(h.length, e.length); return L >= 4 && vLev(h, e) <= (L >= 7 ? 2 : 1); };
+const vPre = (h, e) => (h.length === e.length + 1 && h.slice(1) === e && 'وفبلك'.includes(h[0])) || (e.length === h.length + 1 && e.slice(1) === h && 'وفبلك'.includes(e[0])); // نقص حرف عطف أو جر: خطأ
+// صورة مخففة: بلا «ال» في أولها ولا ألف التنوين أو التاء المربوطة في آخرها (المتعرّف يخطئ فيهما كثيرًا: صبيًّا ← الصبيه)
+const vLoose = (x) => x.replace(/^ال(?=..)/, '').replace(/(?<=..)[اه]$/, '');
+const vEq = (h, e) => { if (h === e) return true; if (vPre(h, e)) return false; const L = Math.max(h.length, e.length);
+  if (L >= 4 && vLev(h, e) <= (L >= 6 ? 2 : 1)) return true;
+  const a = vLoose(h), b = vLoose(e); return a.length >= 3 && b.length >= 3 && vLev(a, b) <= (Math.max(a.length, b.length) >= 5 ? 1 : 0); };
+// تشابه أبعد: يُقبل به خطأ المتعرّف في كلمة واحدة إذا صحّ ما بعدها
+const vSim = (h, e) => !vPre(h, e) && vLev(vLoose(h), vLoose(e)) <= Math.ceil(Math.max(vLoose(h).length, vLoose(e).length) / 2);
 const V_SKIP = [['اعوذ', 'بالله', 'من', 'الشيطان', 'الرجيم'], ['بسم', 'الله', 'الرحمن', 'الرحيم']];
 function vExp(key) {
   const [s, a] = key.split(':').map(Number); const t = B.ayahs[ayahIdx.get(key)][2]; let w = t.split(' ').filter((x) => !MARK.test(x));
@@ -501,6 +508,8 @@ function vMatch(heard, final) {
       if (vEq(heard[j], exp[i])) { i++; j++; continue; }
       if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
       if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
+      { const F = vFlat(), c = F.st[ayahIdx.get(VZ.key)] + i; // كلمة سمعها المتعرّف خطأً وما بعدها صحيح
+        if (heard[j + 2] && vSim(heard[j], exp[i]) && vEq(heard[j + 1], F.w[c + 1] || '') && vEq(heard[j + 2], F.w[c + 2] || '')) { i++; j++; continue; } }
       const bk = vBack(heard, j, VZ.key, i, final); if (bk > 0) { j += bk; continue; } // أعاد كلمات سابقة
       if (bk === 0 && (final || j <= heard.length - 3)) {
         st.marks.set(VZ.key, 'mistake'); VZ.base = i; st.part = i ? { key: VZ.key, n: i } : null; render(); vScroll();
