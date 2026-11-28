@@ -9,8 +9,12 @@ const MARK = /^[ۖ-ۜ۞۩]+$/u, QM = /^[ۖ-ۭ۞۩]+$/u;
 const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ(?=[\u06D6-\u06ED]*$)/g, 'ࣰ').replace(/ٖ(?=[\u06D6-\u06ED]*$)/g, 'ࣲ'); return (typeof SET !== 'undefined' && SET.openTan && SET.font !== 'sys') ? t : t.replace(/ࣰ/g, 'ً').replace(/ࣱ/g, 'ٌ').replace(/ࣲ/g, 'ٍ'); };
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
-// غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
+// مخزن البيانات ثابت الاسم: لا يُحذف مع تحديثات البرمجة. وما تغيّر من الملفات يُعرف ببصمته في data/ver.json (يكتبها سكربت النشر)،
+// فلا يُعاد تنزيل ملف إلا إذا تغيّرت بصمته.
 const CACHE = 'q10-data-v83';
+let DV = null; const DVS = LS.get('dv', {}); // البصمات المنشورة، وبصمة كل ملف محفوظ في الجهاز
+const verP = (async () => { try { const r = await fetch('data/ver.json', { cache: 'no-cache' }); if (r.ok) DV = await r.json(); } catch (e) {} })();
+const dvSet = (url) => { if (DV && DV[url] && DVS[url] !== DV[url]) { DVS[url] = DV[url]; LS.set('dv', DVS); } };
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -23,9 +27,13 @@ const pop = $('pop');
 async function getJSON(url) {
   // سجل الروايات يُجلب من الشبكة أولًا ليظهر كل مصحف جديد، وعند انقطاع الاتصال من المحفوظ
   if (url === 'data/riwayat.json') { try { const r = await fetch(url, { cache: 'no-cache' }); if (r.ok) { try { await (await caches.open(CACHE)).put(url, r.clone()); } catch (e) {} return r.json(); } } catch (e) {} }
-  try { if ('caches' in window) { const c = await caches.open(CACHE); const hit = await c.match(url); if (hit) return hit.json(); } } catch (e) {}
-  const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(url + ' ' + r.status);
-  try { if ('caches' in window) { const c = await caches.open(CACHE); await c.put(url, r.clone()); } } catch (e) {}
+  await verP;
+  try { if ('caches' in window) { const c = await caches.open(CACHE); const hit = await c.match(url);
+    // المحفوظ قبل نظام البصمات يُعدّ حديثًا (لم تتغير البيانات منذ آخر تنزيل)، ويُعاد تنزيل الملف إذا تغيّرت بصمته فقط
+    if (hit && (!DV || !DV[url] || !DVS[url] || DVS[url] === DV[url])) { dvSet(url); return hit.json(); } } } catch (e) {}
+  let r; try { r = await fetch(url, { cache: 'no-cache' }); } catch (e) { r = null; }
+  if (!r || !r.ok) { try { const hit = await (await caches.open(CACHE)).match(url); if (hit) return hit.json(); } catch (e) {} throw new Error(url + ' ' + (r ? r.status : 'offline')); }
+  try { if ('caches' in window) { const c = await caches.open(CACHE); await c.put(url, r.clone()); dvSet(url); } } catch (e) {}
   return r.json();
 }
 async function isSaved(url) { try { return 'caches' in window && !!(await (await caches.open(CACHE)).match(url)); } catch (e) { return false; } }
