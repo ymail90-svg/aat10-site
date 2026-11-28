@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v62';
+const CACHE = 'q10-data-v63';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -203,7 +203,7 @@ function pageHafs(p) {
   let txt = ''; const flush = () => { if (txt) { h += '<div class="tx">' + txt + '</div>'; txt = ''; } };
   for (let i = from; i < to; i++) {
     const [s, a, t] = B.ayahs[i]; const key = s + ':' + a; const toks = t.split(' '); let w = ayahStart[i];
-    if (a === 1) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>';
+    if (a === 1) { flush(); h += '<div class="sur"><span>سُورَةُ ' + B.suras[s - 1].name + '</span></div>';
       if (s !== 1 && s !== 9) { let c = 0; const b = []; while (c < 4) { const tk = toks.shift(); if (!MARK.test(tk)) { c++; w++; } b.push(tk); } h += '<div class="bsm">' + esc(b.join(' ')) + '</div>'; }
       if (s === 1) { const b = toks.splice(0, 4); w += 4; h += '<div class="bsm">' + esc(b.join(' ')) + ' ' + nSp(1, 1) + '</div>'; if (!toks.length) continue; } }
     const num = ' ' + nSp(s, a) + ' ';
@@ -229,7 +229,7 @@ function pageM(p) {
     const [s, a, t] = M.ayahs[i]; const key = s + ':' + a; let w = qStart[i]; const toks = t.split(' ');
     let nw = 0; for (const tk of toks) if (!QM.test(tk)) nw++;
     const endsHere = qStart[i] + nw <= to;
-    if (a === 1 && w >= from) { flush(); h += '<div class="sur">سُورَةُ ' + B.suras[s - 1].name + '</div>'; if (s !== 9 && M.bsm && !(s === 1 && M.fatihaBsm)) h += '<div class="bsm">' + esc(M.bsm) + '</div>'; }
+    if (a === 1 && w >= from) { flush(); h += '<div class="sur"><span>سُورَةُ ' + B.suras[s - 1].name + '</span></div>'; if (s !== 9 && M.bsm && !(s === 1 && M.fatihaBsm)) h += '<div class="bsm">' + esc(M.bsm) + '</div>'; }
     const hidden = isHidden(key), parts = [];
     // نص تنزيل يضم البسملة إلى أول آية من كل سورة، والبسملة معروضة في رأس السورة؛ فلا تُكرَّر
     let skipB = M.bsmInText && a === 1 && s !== 1 && s !== 9 ? 4 : 0;
@@ -283,7 +283,7 @@ function pageHafsLines(p, L) {
   let h = '<div class="hd"><span hidden>' + B.suras[B.ayahs[from][0] - 1].name + '</span><span class="rw">' + RWV.n + '</span><span>الجزء ' + ar(juzOf(from)) + '</span></div><div class="lines">';
   let k = 0;
   for (const x of L) {
-    if (x[0] === 's') { h += '<div class="sur">سُورَةُ ' + B.suras[x[1] - 1].name + '</div>'; continue; }
+    if (x[0] === 's') { h += '<div class="sur"><span>سُورَةُ ' + B.suras[x[1] - 1].name + '</span></div>'; continue; }
     if (x[0] === 'b') { h += '<div class="bsm">بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>'; continue; }
     const a = starts[k], b = k + 1 < starts.length ? starts[k + 1] : Math.min(lastW + 1, w1); k++;
     const parts = []; for (let w = a; w < b; w++) if (words[w] !== undefined) parts.push(words[w]);
