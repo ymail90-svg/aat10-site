@@ -10,12 +10,12 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v63';
+const CACHE = 'q10-data-v64';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
 const RWS = new Map(); // id -> {q, ...}
-const st = { page: LS.get('page', 1), mode: 'show', revealed: new Set(), marks: new Map(), last: null, showAll: false };
+const st = { page: LS.get('page', 1), mode: 'show', revealed: new Set(), marks: new Map(), last: null, showAll: false, part: null };
 const isHidden = (key) => st.mode === 'mem' && !st.showAll && !st.revealed.has(key);
 const pop = $('pop');
 
@@ -207,7 +207,8 @@ function pageHafs(p) {
       if (s !== 1 && s !== 9) { let c = 0; const b = []; while (c < 4) { const tk = toks.shift(); if (!MARK.test(tk)) { c++; w++; } b.push(tk); } h += '<div class="bsm">' + esc(b.join(' ')) + '</div>'; }
       if (s === 1) { const b = toks.splice(0, 4); w += 4; h += '<div class="bsm">' + esc(b.join(' ')) + ' ' + nSp(1, 1) + '</div>'; if (!toks.length) continue; } }
     const num = ' ' + nSp(s, a) + ' ';
-    if (isHidden(key)) { txt += hidSpan(key, esc(toks.join(' ')), num); continue; }
+    if (isHidden(key)) { const pn = st.part && st.part.key === key ? st.part.n : 0; let c = 0, cut = 0; if (pn) for (let x = 0; x < toks.length; x++) { if (!MARK.test(toks[x])) { if (c === pn) break; c++; } cut = x + 1; }
+      txt += (cut ? esc(toks.slice(0, cut).join(' ')) + ' ' : '') + (cut < toks.length ? hidSpan(key, esc(toks.slice(cut).join(' ')), num) : num); continue; }
     const parts = [];
     for (const tk of toks) {
       if (MARK.test(tk)) { parts.push(esc(tk)); continue; }
@@ -265,11 +266,12 @@ function pageHafsLines(p, L) {
   const words = {}; let lastW = 0; // رقم الكلمة -> html (الكلمة وعلاماتها ورقم الآية إن ختمت)
   for (let i = from; i < to; i++) {
     const [s, a, t] = B.ayahs[i]; const key = s + ':' + a; let w = ayahStart[i]; const toks = t.split(' ');
-    const skip = a === 1 && s !== 1 && s !== 9 ? 4 : 0; let seen = 0; const hid = isHidden(key);
+    const skip = a === 1 && s !== 1 && s !== 9 ? 4 : 0; let seen = 0; const hidA = isHidden(key);
     let lastIdx = -1; toks.forEach((tk, j) => { if (!MARK.test(tk)) lastIdx = j; });
     toks.forEach((tk, j) => {
       if (MARK.test(tk)) { if (words[w - 1] !== undefined) words[w - 1] += ' ' + esc(tk); return; }
       if (seen++ < skip) { w++; return; }
+      const hid = hidA && !(st.part && st.part.key === key && seen - 1 - skip < st.part.n);
       let h;
       if (RWV.plain || hid) h = esc(tk);
       else { const ss = B.wordSites[w], uu = B.wordUsul[w], mm = B.im[w], body = dots(tk, mm), tq = mm && mm[2] & 2 ? ' tq' : '';
@@ -329,7 +331,7 @@ function render() {
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
   LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); { const j = B.juzByPage[st.page - 1]; loadShw(j); if (j < 30) loadShw(j + 1); if (j > 1) loadShw(j - 1); } if (!$('aud')) audInit(); audSync(); audMark();
 }
-function go(p) { if (p < 1 || p > 604) return; if (typeof VZ !== 'undefined' && VZ.on) vStop(''); st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
+function go(p) { if (p < 1 || p > 604) return; if (typeof VZ !== 'undefined' && VZ.on) vStop(''); st.page = p; st.last = null; st.revealed.clear(); st.part = null; render(); scrollTo(0, 0); }
 
 // ===== التهجد: صفحات متصلة وتمرير تلقائي =====
 const tj = { speed: LS.get('tjSpeed', 10), on: true, next: 1, raf: 0, acc: 0 };
@@ -362,7 +364,7 @@ $('tjBg').onclick = cycleBg; $('bBg').onclick = cycleBg;
 // ===== الأوضاع =====
 function setMode(m) {
   if (typeof VZ !== 'undefined' && VZ.on) vStop('');
-  st.mode = m; st.revealed.clear(); st.last = null; st.showAll = false; cancelAnimationFrame(tj.raf);
+  st.mode = m; st.revealed.clear(); st.last = null; st.showAll = false; st.part = null; cancelAnimationFrame(tj.raf);
   document.body.classList.toggle('m-tj', m === 'tj'); document.body.classList.toggle('m-mem', m === 'mem');
   document.querySelectorAll('#modes button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
   if (m === 'tj') tj.on = true; autoFlip();
@@ -374,11 +376,11 @@ function mark(kind) { const k = st.last || pageKeys().find((x) => !st.revealed.h
 $('revNext').onclick = () => { const k = pageKeys().find((x) => isHidden(x)); if (k) reveal(k); };
 $('mkErr').onclick = () => mark('mistake'); $('mkHes').onclick = () => mark('hesitation');
 $('revAll').onclick = () => { st.showAll = true; render(); };
-$('hideAll').onclick = () => { st.showAll = false; st.revealed.clear(); st.last = null; render(); };
+$('hideAll').onclick = () => { st.showAll = false; st.revealed.clear(); st.last = null; st.part = null; render(); };
 
 // ===== التسميع بالصوت (تجربة): خدمة التعرّف المدمجة في المتصفح، تظهر الآية إذا قُرئت صحيحة، ويتوقف عند الخطأ =====
-const VZ = { on: false, rec: null, key: null, fin: [], intr: [], done: 0 };
-const vNorm = (w) => w.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08FF\u0640]/g, '').replace(/[ٱأإآ]/g, 'ا').replace(/ؤ/g, 'و').replace(/[ئى]/g, 'ي').replace(/ء/g, '').replace(/ة/g, 'ه').replace(/[^\u0621-\u064A]/g, '');
+const VZ = { on: false, rec: null, key: null, pos: 0, base: 0 };
+const vNorm = (w) => w.replace(/[ؐ-ًؚ-ٰٟۖ-ۭ࣓-ࣿـ]/g, '').replace(/[ٱأإآ]/g, 'ا').replace(/ؤ/g, 'و').replace(/[ئى]/g, 'ي').replace(/ء/g, '').replace(/ة/g, 'ه').replace(/[^ء-ي]/g, '');
 const vLev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
 const vEq = (h, e) => { if (h === e) return true; if ((h.length === e.length + 1 && h.slice(1) === e && 'وفبلك'.includes(h[0])) || (e.length === h.length + 1 && e.slice(1) === h && 'وفبلك'.includes(e[0]))) return false; const L = Math.max(h.length, e.length); return L >= 4 && vLev(h, e) <= (L >= 7 ? 2 : 1); };
@@ -388,45 +390,50 @@ function vExp(key) {
   if (a === 1 && s !== 1 && s !== 9) w = w.slice(4);
   return w.map(vNorm).filter(Boolean);
 }
-const vNext = () => pageKeys().find((k) => isHidden(k) && k !== '1:1');
+// الآية التالية: أول آية مخفية تظهر في الصفحة نفسها بترتيبها
+const vNext = () => { const e = document.querySelector('#page .hid[data-k]'); return e ? e.dataset.k : null; };
 function vSay(t, err) { const e = $('voiceSt'); if (e) { e.textContent = t; e.classList.toggle('err', !!err); } }
-function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg) vSay(msg, err); }
-function vMatch() {
-  const heard = VZ.fin.concat(VZ.intr), nf = VZ.fin.length; let j = 0;
+function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg !== undefined) vSay(msg, err); }
+function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); } }
+// تُطابَق كلمات الجلسة كلها من موضع الآية الحالية؛ والخطأ لا يُعلن إلا إذا جاءت بعده كلمتان أو انتهى الكلام
+function vMatch(heard, final) {
+  let j = VZ.pos;
   while (VZ.key) {
-    const exp = vExp(VZ.key); let i = 0;
-    for (const sk of V_SKIP) { if (exp[0] === sk[0]) continue; let m = 0; while (m < sk.length && heard[j + m] && vEq(heard[j + m], sk[m])) m++; if (m === sk.length || (m >= 2 && j + m >= heard.length)) j += m; }
+    const exp = vExp(VZ.key); let i = VZ.base;
+    if (i && heard[j] && vEq(heard[j], exp[0]) && !vEq(heard[j], exp[i])) i = 0; // أعاد الآية من أولها
+    if (i === 0) for (const sk of V_SKIP) { if (exp[0] === sk[0]) continue; let m = 0; while (m < sk.length && heard[j + m] && vEq(heard[j + m], sk[m])) m++; if (m === sk.length || (m >= 2 && j + m >= heard.length)) j += m; }
     while (i < exp.length && j < heard.length) {
       if (vEq(heard[j], exp[i])) { i++; j++; continue; }
       if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
       if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
-      if (j < nf) { st.marks.set(VZ.key, 'mistake'); render(); vStop('توقّف: خطأ في الآية ' + ar(VZ.key.split(':')[1]) + ' عند الكلمة ' + ar(i + 1) + ' — اضغط «سمّع بصوتك» وأعد قراءتها', true); VZ.fin = []; VZ.intr = []; return; }
-      return; // الخطأ في كلام غير نهائي بعد: ننتظر
+      if (final || j <= heard.length - 3) {
+        st.marks.set(VZ.key, 'mistake'); VZ.base = i; st.part = i ? { key: VZ.key, n: i } : null; render();
+        vStop('توقّف: خطأ في الآية ' + ar(VZ.key.split(':')[1]) + ' بعد الكلمة ' + ar(i) + ' — اضغط «سمّع بصوتك» وأكمل من موضع الخطأ', true); return;
+      }
+      vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; // ننتظر تمام الكلام
     }
-    if (i < exp.length) { vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1]) + ' (' + ar(i) + ' من ' + ar(exp.length) + ')'); return; }
-    st.revealed.add(VZ.key); st.last = VZ.key; render();
-    VZ.fin = VZ.fin.slice(Math.min(j, nf)); VZ.intr = []; VZ.key = vNext();
+    if (i < exp.length) { vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; }
+    st.part = null; st.revealed.add(VZ.key); st.last = VZ.key; render();
+    VZ.pos = j; VZ.base = 0; VZ.key = vNext();
     if (!VZ.key) { vStop('أحسنت! أتممت تسميع الصفحة'); return; }
-    return vMatch();
   }
 }
 function vStart() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('متصفحك لا يدعم التعرّف على الصوت، جرّب متصفح Chrome', 3000); return; }
   if (RWV.mushaf !== 'base') { toast('التسميع بالصوت متاح الآن في مصحف حفص', 2500); return; }
-  VZ.key = vNext(); if (!VZ.key) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
-  VZ.fin = []; VZ.intr = []; VZ.on = true;
-  const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r; VZ.done = 0;
+  const k = vNext(); if (!k) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
+  if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true;
+  const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r;
   r.onresult = (ev) => {
-    if (!VZ.on) return; VZ.intr = [];
-    for (let k = VZ.done; k < ev.results.length; k++) {
-      const ws = ev.results[k][0].transcript.trim().split(/\s+/).map(vNorm).filter(Boolean);
-      if (ev.results[k].isFinal) { VZ.fin.push(...ws); VZ.done = k + 1; } else VZ.intr.push(...ws);
-    }
-    vMatch();
+    if (!VZ.on) return; let acc = '';
+    // بعض المتصفحات تعيد النص كله متراكمًا، وبعضها مقطعًا: نجمعه دون تكرار
+    for (let x = 0; x < ev.results.length; x++) { const t = ev.results[x][0].transcript.trim(); if (!t) continue; acc = acc && t.startsWith(acc) ? t : acc && acc.endsWith(t) ? acc : (acc ? acc + ' ' + t : t); }
+    const heard = acc.split(/\s+/).map(vNorm).filter(Boolean), last = ev.results[ev.results.length - 1];
+    vMatch(heard, !!(last && last.isFinal));
   };
   r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') vStop('اسمح للموقع باستخدام الميكروفون ثم أعد المحاولة', true); else if (e.error === 'network') vStop('التسميع بالصوت يحتاج إلى اتصال بالإنترنت', true); };
-  r.onend = () => { if (VZ.on) { VZ.done = 0; try { r.start(); } catch (e) {} } };
+  r.onend = () => { if (VZ.on) { VZ.pos = 0; VZ.base = st.part && st.part.key === VZ.key ? st.part.n : 0; try { r.start(); } catch (e) {} } };
   try { r.start(); } catch (e) {}
   $('voiceBtn').classList.add('on'); $('voiceBtn').textContent = '⏹ أوقف'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]));
 }
