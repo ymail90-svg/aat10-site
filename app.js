@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v67';
+const CACHE = 'q10-data-v68';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -228,7 +228,37 @@ function pageHafs(p) {
   return h + '<div class="pnum">' + ar(p) + '</div>';
 }
 
+// كلمة من مصحف الرواية بتلوينها وعلاماتها (تُستعمل في الصفحات كلها وفي صفحة الفاتحة)
+function mTok(tk, w, key, hidden) {
+      const ss = M.ws[w];
+      const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
+      const body = dots(qd(QSILA.has(w) ? tk.replace(/مْ?([ۖ-ۜ]*)$/u, 'مُۥ$1') : tk), mm);
+      const skW = (w, body) => (M.sk && M.sk[w] != null && !(RWV.id === 'khallad' && skL.has(w))) ? '<span class="skw">' + '<i class="sk' + (skL.has(w) ? ' skb' : '') + '" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' + body + '</span>' : body;
+      return (!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + (M.sk && M.sk[w] != null && !(RWV.id === 'khallad' && skL.has(w)) ? '<i class="sk' + (skL.has(w) ? ' skb' : '') + '" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' : '') + body + '</span>'
+        : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : skW(w, body));
+}
+// الفاتحة في كل المصاحف على هيئة صفحة حفص: الترويسة نفسها وتقسيم الأسطر نفسه، ولكل رواية نصها وعدّ آياتها
+function pageM1() {
+  const L = B.lines[SET.layout][0], starts = L.filter((x) => typeof x[0] === 'number').map((x) => x[0]);
+  const words = [], add = (h) => words.push(h), tail = (h) => { if (words.length) words[words.length - 1] += ' ' + h; };
+  if (!M.fatihaBsm && M.bsm) M.bsm.split(' ').filter((x) => x && !QM.test(x)).forEach((x) => add(esc(qd(x))));
+  for (let i = 0; i < M.ayahs.length && M.ayahs[i][0] === 1; i++) {
+    const [s, a, t] = M.ayahs[i], key = s + ':' + a, hidden = isHidden(key); let w = qStart[i];
+    const m = st.marks.get(key), cls = 'hid' + (m === 'mistake' ? ' err' : m === 'hesitation' ? ' hes' : '');
+    for (const tk of t.split(' ')) {
+      if (!tk) continue;
+      if (QM.test(tk)) { tail(esc(qd(tk))); continue; }
+      const h = mTok(tk, w, key, hidden); add(hidden ? '<span class="' + cls + '" data-k="' + key + '">' + h + '</span>' : h); w++;
+    }
+    tail(nSp(s, a));
+  }
+  if (words.length !== (starts.length ? 29 : -1)) return null;
+  let h = '<div class="hd"><span hidden>' + B.suras[0].name + '</span><span class="rw">' + RWV.n + '</span><span>الجزء ' + ar(1) + '</span></div><div class="lines"><div class="sur"><span>سُورَةُ ' + B.suras[0].name + '</span></div>';
+  starts.forEach((a, k) => { const b = k + 1 < starts.length ? starts[k + 1] : words.length; h += '<div class="ln c"><span class="lt">' + words.slice(a, b).join(' ') + '</span></div>'; });
+  return h + '</div><div class="pnum">' + ar(1) + '</div>';
+}
 function pageM(p) {
+  if (p === 1 && !SET.big && SET.layout !== 'flow' && B.lines && B.lines[SET.layout]) { const h = pageM1(); if (h) return h; }
   const from = M.pages[p - 1], to = p < 604 ? M.pages[p] : M.total, a0 = qAyahAt(from);
   let h = '<div class="hd"><span hidden>' + B.suras[M.ayahs[a0][0] - 1].name + '</span><span class="rw">' + RWV.n + '</span><span>الجزء ' + ar(B.juzByPage[p - 1]) + '</span></div>';
   let txt = ''; const flush = () => { if (txt) { h += '<div class="tx">' + txt + '</div>'; txt = ''; } };
@@ -244,12 +274,7 @@ function pageM(p) {
       if (QM.test(tk)) { if (w >= from && w < to && !skipB) parts.push(esc(qd(tk))); continue; }
       if (skipB) { skipB--; w++; continue; }
       if (w < from || w >= to) { w++; continue; }
-      const ss = M.ws[w];
-      const mm = !hidden && RWV.id === 'qalun' && M.im ? M.im[w] : null;
-      const body = dots(qd(QSILA.has(w) ? tk.replace(/مْ?([ۖ-ۜ]*)$/u, 'مُۥ$1') : tk), mm);
-      const skW = (w, body) => (M.sk && M.sk[w] != null && !(RWV.id === 'khallad' && skL.has(w))) ? '<span class="skw">' + '<i class="sk' + (skL.has(w) ? ' skb' : '') + '" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' + body + '</span>' : body;
-      parts.push(!hidden && ss ? '<span class="v' + (M.cls && M.cls[w] ? ' h' + M.cls[w] : '') + (isFocus(ss) ? '' : ' dim') + (approvedAll(M, ss) ? ' ok' : '') + '" data-q="1" data-w="' + w + '" data-k="' + key + '">' + (M.sk && M.sk[w] != null && !(RWV.id === 'khallad' && skL.has(w)) ? '<i class="sk' + (skL.has(w) ? ' skb' : '') + '" style="right:calc(' + M.sk[w] + '% - .25em)">س</i>' : '') + body + '</span>'
-        : mm && mm[2] & 2 ? '<span class="tqc">' + body + '</span>' : !hidden && QCOL.has(w) ? '<span class="qr" data-k="' + key + '">' + body + '</span>' : skW(w, body));
+      parts.push(mTok(tk, w, key, hidden));
       w++;
     }
     const num = endsHere ? ' ' + nSp(s, a) + ' ' : ' ';
