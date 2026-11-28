@@ -210,3 +210,5 @@ body.lock{overflow:hidden;overscroll-behavior:none}
 .sht{display:flex;align-items:baseline;justify-content:space-between;gap:.5em;white-space:nowrap;overflow:hidden}
 .sht>span:not(.shs){flex:1 1 auto;text-align:center}.sht .shs{flex:none;margin:0}
 .stpbtn{display:block;width:100%;margin:12px 0 4px;min-height:46px;font-size:16px}
+
+.memb .vb{border-color:var(--g);color:var(--g);font-weight:600}.memb .vb.on{background:#b4232a;color:#fff;border-color:#b4232a}.memb .vst{flex-basis:100%;text-align:center;font-size:14px;color:var(--gd);min-height:18px}.memb .vst.err{color:#b4232a;font-weight:600}

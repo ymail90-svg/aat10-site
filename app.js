@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v61';
+const CACHE = 'q10-data-v62';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -329,7 +329,7 @@ function render() {
   $('below').innerHTML = usul + '<div class="ft"><span>' + esc(foot) + '</span><span class="dr">مسودة — تحتاج اعتماد المراجع</span></div>';
   LS.set('page', st.page); track(); markUI(); pushRecent(); decoratePage(); { const j = B.juzByPage[st.page - 1]; loadShw(j); if (j < 30) loadShw(j + 1); if (j > 1) loadShw(j - 1); } if (!$('aud')) audInit(); audSync(); audMark();
 }
-function go(p) { if (p < 1 || p > 604) return; st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
+function go(p) { if (p < 1 || p > 604) return; if (typeof VZ !== 'undefined' && VZ.on) vStop(''); st.page = p; st.last = null; st.revealed.clear(); render(); scrollTo(0, 0); }
 
 // ===== التهجد: صفحات متصلة وتمرير تلقائي =====
 const tj = { speed: LS.get('tjSpeed', 10), on: true, next: 1, raf: 0, acc: 0 };
@@ -361,6 +361,7 @@ $('tjBg').onclick = cycleBg; $('bBg').onclick = cycleBg;
 
 // ===== الأوضاع =====
 function setMode(m) {
+  if (typeof VZ !== 'undefined' && VZ.on) vStop('');
   st.mode = m; st.revealed.clear(); st.last = null; st.showAll = false; cancelAnimationFrame(tj.raf);
   document.body.classList.toggle('m-tj', m === 'tj'); document.body.classList.toggle('m-mem', m === 'mem');
   document.querySelectorAll('#modes button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
@@ -374,6 +375,62 @@ $('revNext').onclick = () => { const k = pageKeys().find((x) => isHidden(x)); if
 $('mkErr').onclick = () => mark('mistake'); $('mkHes').onclick = () => mark('hesitation');
 $('revAll').onclick = () => { st.showAll = true; render(); };
 $('hideAll').onclick = () => { st.showAll = false; st.revealed.clear(); st.last = null; render(); };
+
+// ===== التسميع بالصوت (تجربة): خدمة التعرّف المدمجة في المتصفح، تظهر الآية إذا قُرئت صحيحة، ويتوقف عند الخطأ =====
+const VZ = { on: false, rec: null, key: null, fin: [], intr: [], done: 0 };
+const vNorm = (w) => w.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08FF\u0640]/g, '').replace(/[ٱأإآ]/g, 'ا').replace(/ؤ/g, 'و').replace(/[ئى]/g, 'ي').replace(/ء/g, '').replace(/ة/g, 'ه').replace(/[^\u0621-\u064A]/g, '');
+const vLev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
+const vEq = (h, e) => { if (h === e) return true; if ((h.length === e.length + 1 && h.slice(1) === e && 'وفبلك'.includes(h[0])) || (e.length === h.length + 1 && e.slice(1) === h && 'وفبلك'.includes(e[0]))) return false; const L = Math.max(h.length, e.length); return L >= 4 && vLev(h, e) <= (L >= 7 ? 2 : 1); };
+const V_SKIP = [['اعوذ', 'بالله', 'من', 'الشيطان', 'الرجيم'], ['بسم', 'الله', 'الرحمن', 'الرحيم']];
+function vExp(key) {
+  const [s, a] = key.split(':').map(Number); const t = B.ayahs[ayahIdx.get(key)][2]; let w = t.split(' ').filter((x) => !MARK.test(x));
+  if (a === 1 && s !== 1 && s !== 9) w = w.slice(4);
+  return w.map(vNorm).filter(Boolean);
+}
+const vNext = () => pageKeys().find((k) => isHidden(k) && k !== '1:1');
+function vSay(t, err) { const e = $('voiceSt'); if (e) { e.textContent = t; e.classList.toggle('err', !!err); } }
+function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg) vSay(msg, err); }
+function vMatch() {
+  const heard = VZ.fin.concat(VZ.intr), nf = VZ.fin.length; let j = 0;
+  while (VZ.key) {
+    const exp = vExp(VZ.key); let i = 0;
+    for (const sk of V_SKIP) { if (exp[0] === sk[0]) continue; let m = 0; while (m < sk.length && heard[j + m] && vEq(heard[j + m], sk[m])) m++; if (m === sk.length || (m >= 2 && j + m >= heard.length)) j += m; }
+    while (i < exp.length && j < heard.length) {
+      if (vEq(heard[j], exp[i])) { i++; j++; continue; }
+      if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
+      if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
+      if (j < nf) { st.marks.set(VZ.key, 'mistake'); render(); vStop('توقّف: خطأ في الآية ' + ar(VZ.key.split(':')[1]) + ' عند الكلمة ' + ar(i + 1) + ' — اضغط «سمّع بصوتك» وأعد قراءتها', true); VZ.fin = []; VZ.intr = []; return; }
+      return; // الخطأ في كلام غير نهائي بعد: ننتظر
+    }
+    if (i < exp.length) { vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1]) + ' (' + ar(i) + ' من ' + ar(exp.length) + ')'); return; }
+    st.revealed.add(VZ.key); st.last = VZ.key; render();
+    VZ.fin = VZ.fin.slice(Math.min(j, nf)); VZ.intr = []; VZ.key = vNext();
+    if (!VZ.key) { vStop('أحسنت! أتممت تسميع الصفحة'); return; }
+    return vMatch();
+  }
+}
+function vStart() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('متصفحك لا يدعم التعرّف على الصوت، جرّب متصفح Chrome', 3000); return; }
+  if (RWV.mushaf !== 'base') { toast('التسميع بالصوت متاح الآن في مصحف حفص', 2500); return; }
+  VZ.key = vNext(); if (!VZ.key) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
+  VZ.fin = []; VZ.intr = []; VZ.on = true;
+  const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r; VZ.done = 0;
+  r.onresult = (ev) => {
+    if (!VZ.on) return; VZ.intr = [];
+    for (let k = VZ.done; k < ev.results.length; k++) {
+      const ws = ev.results[k][0].transcript.trim().split(/\s+/).map(vNorm).filter(Boolean);
+      if (ev.results[k].isFinal) { VZ.fin.push(...ws); VZ.done = k + 1; } else VZ.intr.push(...ws);
+    }
+    vMatch();
+  };
+  r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') vStop('اسمح للموقع باستخدام الميكروفون ثم أعد المحاولة', true); else if (e.error === 'network') vStop('التسميع بالصوت يحتاج إلى اتصال بالإنترنت', true); };
+  r.onend = () => { if (VZ.on) { VZ.done = 0; try { r.start(); } catch (e) {} } };
+  try { r.start(); } catch (e) {}
+  $('voiceBtn').classList.add('on'); $('voiceBtn').textContent = '⏹ أوقف'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]));
+}
+$('voiceBtn').onclick = () => { if (VZ.on) vStop('توقّف التسميع'); else vStart(); };
 
 // ===== الرسائل =====
 let toastT;
