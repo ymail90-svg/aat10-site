@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v80';
+const CACHE = 'q10-data-v81';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -115,7 +115,7 @@ function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToa
 const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0, rate: LS.get('arate', 1) };
 AUD.a.preservesPitch = true; AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.addEventListener('play', () => { AUD.a.playbackRate = AUD.rate; });
 // القراء (رواية حفص، ملف لكل آية من everyayah.com؛ أسماء المجلدات كما في https://everyayah.com/data/). الافتراضي خليفة الطنيجي،
-// وإن تعذّر ملف آية عند القارئ المختار شُغّلت الآية نفسها بصوت العفاسي (أو الطنيجي إن كان المختار العفاسي)
+// وإن تعذّر ملف آية عند القارئ المختار شُغّلت الآية نفسها بصوت الطنيجي (وللطنيجي نفسه: العفاسي كما كان)
 const QARIS = [['khalefa_al_tunaiji_64kbps', 'خليفة الطنيجي'], ['Alafasy_128kbps', 'مشاري العفاسي'], ['Husary_128kbps', 'محمود خليل الحصري'], ['Husary_Muallim_128kbps', 'الحصري (المعلّم)'],
   ['Minshawy_Murattal_128kbps', 'محمد صديق المنشاوي (مرتل)'], ['Minshawy_Mujawwad_192kbps', 'المنشاوي (مجوّد)'], ['Abdul_Basit_Murattal_192kbps', 'عبد الباسط عبد الصمد (مرتل)'], ['Abdul_Basit_Mujawwad_128kbps', 'عبد الباسط (مجوّد)'],
   ['Mohammad_al_Tablaway_128kbps', 'محمد محمود الطبلاوي'], ['Mustafa_Ismail_48kbps', 'مصطفى إسماعيل'], ['Abdurrahmaan_As-Sudais_192kbps', 'عبد الرحمن السديس'], ['Saood_ash-Shuraym_128kbps', 'سعود الشريم'],
@@ -126,7 +126,7 @@ const QARIS = [['khalefa_al_tunaiji_64kbps', 'خليفة الطنيجي'], ['Ala
   ['Salaah_AbdulRahman_Bukhatir_128kbps', 'صلاح بو خاطر'], ['Ali_Jaber_64kbps', 'علي جابر']];
 AUD.q = QARIS.some((x) => x[0] === LS.get('aqari', '')) ? LS.get('aqari', '') : QARIS[0][0];
 const qariName = () => QARIS.find((x) => x[0] === AUD.q)[1];
-const AUD_FB = () => (AUD.q === 'Alafasy_128kbps' ? 'khalefa_al_tunaiji_64kbps' : 'Alafasy_128kbps');
+const AUD_FB = () => (AUD.q === 'khalefa_al_tunaiji_64kbps' ? 'Alafasy_128kbps' : 'khalefa_al_tunaiji_64kbps');
 const audUrl = (s, a, d) => 'https://everyayah.com/data/' + (d || AUD.q) + '/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
 function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } audUI(); }
 function audOne(k) {
