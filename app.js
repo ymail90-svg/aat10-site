@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v81';
+const CACHE = 'q10-data-v82';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -112,8 +112,13 @@ const nSp = (s, a) => { const id = stopAt(s + ':' + a); return '<span class="n' 
 const stopLabel = (x) => { const [s, a] = x.k.split(':').map(Number); return 'سورة ' + B.suras[s - 1].name + ' · الآية ' + ar(a) + ' · ' + esc((RWS.get(x.rw) || {}).n || ''); };
 function goStop(id) { const x = STOPS[id]; if (!x) return; closeSheet(); hideToast(); st.page = x.p; if (x.rw !== RWV.id && RWS.get(x.rw)) openRw(x.rw); else go(x.p); }
 // ===== الاستماع لحفص (خليفة الطنيجي، ملف لكل آية من everyayah.com): شريط أسفل الصفحة — السورة، من آية إلى آية، عدد التكرار، تشغيل/إيقاف =====
-const AUD = { a: new Audio(), k: null, s: 1, f: 1, t: 7, rep: 1, left: 0, rate: LS.get('arate', 1) };
-AUD.a.preservesPitch = true; AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.addEventListener('play', () => { AUD.a.playbackRate = AUD.rate; });
+const AUD = { a: null, b: null, bk: null, k: null, s: 1, f: 1, t: 7, rep: 1, left: 0, rate: LS.get('arate', 1) };
+// مشغّلان بالتناوب: يُحمَّل ملف الآية التالية في الثاني أثناء قراءة الآية الحالية، فلا ينقطع الصوت بين الآيات
+const audMk = () => { const x = new Audio(); x.preload = 'auto'; x.preservesPitch = true; x.defaultPlaybackRate = AUD.rate;
+  x.addEventListener('play', () => { x.playbackRate = AUD.rate; });
+  x.addEventListener('error', () => { if (x === AUD.a) audErr(); else AUD.bk = null; });
+  x.addEventListener('ended', () => { if (x === AUD.a) audEnded(); }); return x; };
+AUD.a = audMk(); AUD.b = audMk();
 // القراء (رواية حفص، ملف لكل آية من everyayah.com؛ أسماء المجلدات كما في https://everyayah.com/data/). الافتراضي خليفة الطنيجي،
 // وإن تعذّر ملف آية عند القارئ المختار شُغّلت الآية نفسها بصوت الطنيجي (وللطنيجي نفسه: العفاسي كما كان)
 const QARIS = [['khalefa_al_tunaiji_64kbps', 'خليفة الطنيجي'], ['Alafasy_128kbps', 'مشاري العفاسي'], ['Husary_128kbps', 'محمود خليل الحصري'], ['Husary_Muallim_128kbps', 'الحصري (المعلّم)'],
@@ -130,26 +135,38 @@ const AUD_FB = () => (AUD.q === 'khalefa_al_tunaiji_64kbps' ? 'Alafasy_128kbps' 
 const audUrl = (s, a, d) => 'https://everyayah.com/data/' + (d || AUD.q) + '/' + String(s).padStart(3, '0') + String(a).padStart(3, '0') + '.mp3';
 function audMark() { document.querySelectorAll('.n.play').forEach((e) => e.classList.remove('play')); if (AUD.k) { const e = document.querySelector('[data-stop="' + AUD.k + '"]'); if (e) e.classList.add('play'); } audUI(); }
 function audOne(k) {
-  const [s, a] = k.split(':').map(Number); AUD.k = k; AUD.fb = false; AUD.a.src = audUrl(s, a);
-  AUD.a.play().catch((e) => { if (e && e.name === 'NotAllowedError') { toast('تعذّر تشغيل الصوت'); audStop(); } });
+  const [s, a] = k.split(':').map(Number), u = audUrl(s, a); AUD.k = k; AUD.fb = false;
+  const old = AUD.a, swap = AUD.bk === k && AUD.b.src === u; AUD.bk = null;
+  if (swap) { AUD.a = AUD.b; AUD.b = old; old.pause(); } else { AUD.b.pause(); AUD.a.src = u; }
+  AUD.a.playbackRate = AUD.rate;
+  AUD.a.play().catch((e) => { if (!e || e.name !== 'NotAllowedError') return;
+    // إن منع الجهاز تشغيل المشغّل الثاني، تُقرأ الآية في المشغّل الأول
+    if (swap) { AUD.b = AUD.a; AUD.a = old; AUD.a.src = u; AUD.a.play().catch(() => { toast('تعذّر تشغيل الصوت'); audStop(); }); } else { toast('تعذّر تشغيل الصوت'); audStop(); } });
+  audPre(k);
   const p = pageOfAyah(ayahIdx.get(k)); if (p && p !== st.page) go(p); else audMark();
 }
 // يبدأ من آية: إن كانت داخل المقطع المحدد يتابعه بتكراره، وإلا يقرأ من الآية إلى آخر السورة مرة واحدة
 function audPlay(k) {
   const [s, a] = k.split(':').map(Number);
   if (!(s === AUD.s && a >= AUD.f && a <= AUD.t)) { AUD.s = s; AUD.f = a; AUD.t = B.suras[s - 1].ayahs; AUD.rep = 1; }
-  AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(k);
+  AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audStop(); audUnlock(k); audOne(k);
 }
-function audStop() { AUD.a.pause(); AUD.k = null; audMark(); }
-AUD.a.addEventListener('error', () => { if (!AUD.k || AUD.fb) { if (AUD.k) { toast('تعذّر تشغيل الصوت'); audStop(); } return; } const [s, a] = AUD.k.split(':').map(Number); AUD.fb = true; AUD.a.src = audUrl(s, a, AUD_FB()); AUD.a.play().catch(() => {}); });
-AUD.a.addEventListener('ended', () => {
+function audNext(k) { const [s, a] = k.split(':').map(Number); return a < AUD.t ? s + ':' + (a + 1) : AUD.left > 0 ? s + ':' + AUD.f : null; }
+function audPre(k) { const n = audNext(k); if (!n) return; const [s, a] = n.split(':').map(Number), u = audUrl(s, a); AUD.bk = n; if (AUD.b.src !== u) { AUD.b.src = u; AUD.b.load(); } }
+// يُفتح المشغّل الثاني بلمسة المستخدم (تشترطه بعض الأجهزة كالآيفون)
+function audUnlock(k) { const n = audNext(k); if (!n) return; const [s, a] = n.split(':').map(Number), b = AUD.b; b.src = audUrl(s, a); b.muted = true;
+  b.play().then(() => { if (b !== AUD.a) { b.pause(); b.currentTime = 0; } b.muted = false; }).catch(() => { b.muted = false; }); }
+function audStop() { AUD.a.pause(); AUD.b.pause(); AUD.bk = null; AUD.k = null; audMark(); }
+function audErr() { if (!AUD.k || AUD.fb) { if (AUD.k) { toast('تعذّر تشغيل الصوت'); audStop(); } return; } const [s, a] = AUD.k.split(':').map(Number); AUD.fb = true; AUD.a.src = audUrl(s, a, AUD_FB()); AUD.a.play().catch(() => {}); }
+function audEnded() {
   if (!AUD.k) return; const [s, a] = AUD.k.split(':').map(Number);
   if (a < AUD.t) return audOne(s + ':' + (a + 1));
   if (AUD.left > 0) { AUD.left--; return audOne(s + ':' + AUD.f); }
   audStop();
-});
+}
 function audSync() { // يضبط الشريط على سورة الصفحة الحالية إذا لم يكن يعمل
   if (AUD.k || RWV.id !== 'hafs') return;
+  if (pageKeys().some((k) => +k.split(':')[0] === AUD.s)) return; // السورة المختارة في هذه الصفحة
   const s = firstSura(st.page), i = pageFirst[st.page - 1], fa = B.ayahs[i] && B.ayahs[i][0] === s ? B.ayahs[i][1] : 1;
   if (s !== AUD.s) { AUD.s = s; AUD.f = fa; AUD.t = B.suras[s - 1].ayahs; }
 }
@@ -170,9 +187,9 @@ function audInit() {
     + '<label><small>التكرار</small>' + sel('aR', [1, 2, 3, 5, 7, 10, 20].map((v) => '<option value="' + v + '">' + ar(v) + '</option>').join('') + '<option value="0">∞</option>') + '</label>'
     + '<label><small>السرعة</small>' + sel('aV', [0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => '<option value="' + v + '"' + (v === AUD.rate ? ' selected' : '') + '>' + (v === 1 ? 'عادية' : '×' + ar(String(v).replace('.', '٫'))) + '</option>').join('')) + '</label></div>';
   $('bot').prepend(bar);
-  $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audOne(AUD.s + ':' + AUD.f); };
-  $('aV').onchange = (e) => { AUD.rate = +e.target.value; LS.set('arate', AUD.rate); AUD.a.defaultPlaybackRate = AUD.rate; AUD.a.playbackRate = AUD.rate; };
-  $('aS').onchange = (e) => { const v = +e.target.value; AUD.s = v; AUD.f = 1; AUD.t = B.suras[v - 1].ayahs; audStop(); };
+  $('aP').onclick = () => { if (AUD.k) return audStop(); AUD.left = AUD.rep === 0 ? Infinity : AUD.rep - 1; audStop(); audUnlock(AUD.s + ':' + AUD.f); audOne(AUD.s + ':' + AUD.f); };
+  $('aV').onchange = (e) => { AUD.rate = +e.target.value; LS.set('arate', AUD.rate); [AUD.a, AUD.b].forEach((x) => { x.defaultPlaybackRate = AUD.rate; x.playbackRate = AUD.rate; }); };
+  $('aS').onchange = (e) => { const v = +e.target.value; AUD.s = v; AUD.f = 1; AUD.t = B.suras[v - 1].ayahs; audStop(); const p = pageOfAyah(ayahIdx.get(v + ':1')); if (p !== st.page) go(p); };
   $('aQ').onchange = (e) => { const k = AUD.k; AUD.q = e.target.value; LS.set('aqari', AUD.q); if (k) { audStop(); audOne(k); } toast('القارئ: ' + qariName()); };
   $('aF').onchange = (e) => { AUD.f = +e.target.value; if (AUD.t < AUD.f) AUD.t = AUD.f; audUI(); };
   $('aT').onchange = (e) => { AUD.t = +e.target.value; if (AUD.f > AUD.t) AUD.f = AUD.t; audUI(); };
