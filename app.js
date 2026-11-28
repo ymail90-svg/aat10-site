@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v73';
+const CACHE = 'q10-data-v74';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -468,6 +468,21 @@ function vJump(q) {
   VZ.key = key; VZ.base = o; vScroll();
   vSay('سورة ' + B.suras[s - 1].name + ' — الآية ' + ar(a) + ' · تابع القراءة');
 }
+// تصحيح أخطاء المتعرّف: كلمة أو كلمتان سُمعتا خطأً (أو سقطت/زيدت كلمة قصيرة) ثم كلمتان صحيحتان بعدهما
+// يعيد [عدد كلمات المصحف المتجاوزة، عدد الكلمات المسموعة المتجاوزة] أو null
+function vRealign(heard, j, key, i, hi, n) {
+  const F = vFlat(), c = F.st[ayahIdx.get(key)] + i;
+  for (const [a, b] of [[1, 1], [2, 2], [1, 2], [2, 1], [0, 1], [1, 0]]) {
+    if (j + a + 1 >= n || i + b > hi || !F.w[c + b + 1]) continue;
+    if (!vEq(heard[j + a], F.w[c + b]) || !vEq(heard[j + a + 1], F.w[c + b + 1])) continue;
+    const hs = heard.slice(j, j + a), es = F.w.slice(c, c + b);
+    const ok = a === b ? hs.every((h, k) => vSim(h, es[k]))
+      : a > b ? (b === 0 ? hs.every((h) => h.length <= 3 || h === heard[j - 1]) : vSim(hs.join(''), es.join('')))
+      : (a === 0 ? es.every((e) => e.length <= 3) : vSim(hs.join(''), es.join('')));
+    if (ok) return [b, a];
+  }
+  return null;
+}
 // القارئ أعاد كلمات قبل الموضع المنتظر (في الآية أو ما قبلها): يعيد عدد الكلمات المعادة، أو -1 للانتظار، أو 0
 function vBack(heard, j, key, i, final) {
   const F = vFlat(), cur = F.st[ayahIdx.get(key)] + i; let wait = false;
@@ -487,11 +502,15 @@ function vLocate(heard, final) {
     if (m === sk.length) j += m; else if (m && j + m >= heard.length && !final) return null; }
   const n = heard.length - j; if (n < 3 && !(final && n >= 1)) return null;
   const F = vFlat(), K = Math.min(n, 6), hits = [];
-  const at = (q) => { if (!vEq(heard[j], F.w[q])) return false; let bad = 0; for (let m = 1; m < K; m++) if (!F.w[q + m] || !vEq(heard[j + m], F.w[q + m])) if (++bad > (K >= 5 ? 1 : 0)) return false; return true; };
+  const at = (q) => { if (!vEq(heard[j], F.w[q])) return false; let bad = 0; for (let m = 1; m < K; m++) if (!F.w[q + m] || !heard[j + m] || !vEq(heard[j + m], F.w[q + m])) if (++bad > (K >= 5 ? 1 : 0)) return false; return true; };
   const cur = F.st[ayahIdx.get(VZ.key)] + VZ.base;
   if (at(cur)) { VZ.pos = j; VZ.loc = false; return true; } // يقرأ من الموضع المنتظر نفسه
   for (let q = cur - 1; q >= 0 && q >= cur - 150; q--) if (at(q)) { VZ.pos = j; VZ.loc = false; vJump(q); return true; } // أعاد من قبله قليلًا
   for (let q = 0; q < F.w.length; q++) if (vEq(heard[j], F.w[q]) && at(q)) { hits.push(q); if (hits.length > 40) break; }
+  if (!hits.length && n >= 4) { // «يا يحيى» تُكتب في المصحف كلمة واحدة «يٰيحيى»: نجرّب دمج أول كلمتين
+    const h0 = heard; heard = h0.slice(0, j).concat([h0[j] + h0[j + 1]], h0.slice(j + 2));
+    for (let q = 0; q < F.w.length; q++) if (vEq(heard[j], F.w[q]) && at(q)) { hits.push(q); if (hits.length > 40) break; }
+    heard = h0; }
   if (!hits.length) { if (n >= 6 || final) { VZ.pos = j + 1; vSay('لم أتعرّف على الموضع بعد… تابع القراءة'); } return null; }
   if (hits.length > 1 && n < 10 && !final) { vSay('أستمع… أحدّد الموضع'); return null; } // عبارة متكررة: ننتظر كلمات أكثر
   const pc = pageFirst[st.page - 1]; hits.sort((x, y) => Math.abs(F.ai[x] - pc) - Math.abs(F.ai[y] - pc));
@@ -508,10 +527,11 @@ function vMatch(heard, final) {
       if (vEq(heard[j], exp[i])) { i++; j++; continue; }
       if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
       if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
-      { const F = vFlat(), c = F.st[ayahIdx.get(VZ.key)] + i; // كلمة سمعها المتعرّف خطأً وما بعدها صحيح
-        if (heard[j + 2] && vSim(heard[j], exp[i]) && vEq(heard[j + 1], F.w[c + 1] || '') && vEq(heard[j + 2], F.w[c + 2] || '')) { i++; j++; continue; } }
+      const n = final ? heard.length : heard.length - 1; // آخر كلمة في النتيجة المؤقتة قد تكون ناقصة (يموت ← يم)
+      const ra = vRealign(heard, j, VZ.key, i, hi, n); if (ra) { i += ra[0]; j += ra[1]; continue; } // خطأ سماع والكلام بعده صحيح
       const bk = vBack(heard, j, VZ.key, i, final); if (bk > 0) { j += bk; continue; } // أعاد كلمات سابقة
-      if (bk === 0 && (final || j <= heard.length - 3)) {
+      if (final && j >= n - 2 && vSim(heard[j], exp[i])) { i++; j++; continue; } // آخر الكلام وكلمته قريبة: لا نوقف على الشك
+      if (bk === 0 && (final || j <= n - 3)) {
         st.marks.set(VZ.key, 'mistake'); VZ.base = i; st.part = i ? { key: VZ.key, n: i } : null; render(); vScroll();
         vStop('توقّف: خطأ في الآية ' + ar(VZ.key.split(':')[1]) + ' بعد الكلمة ' + ar(i) + ' — سُمع: «' + heard.slice(j, j + 3).join(' ') + '» — اضغط «سمّع بصوتك» وأكمل من موضع الخطأ', true); return;
       }
