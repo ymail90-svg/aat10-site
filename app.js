@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v47';
+const CACHE = 'q10-data-v48';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -77,7 +77,9 @@ async function loadShw(j) {
   } catch (e) { SHJ.delete(j); }
 }
 // مفاتيح الشواهد بالعدّ الكوفي؛ وفي المصاحف التي تعدّ بغيره تُترجم آية المصحف إلى ما يقابلها (SHD.loc)
+let SHWON = LS.get('shw', true);
 const shwOf = (k) => {
+  if (!SHWON) return null;
   const m = SHD.loc[RWV.mushaf], ks = m && k in m ? m[k] : [k];
   const L = ks.flatMap((x) => SHD.ayat[x] || []); return L.length ? L : null;
 };
@@ -411,7 +413,7 @@ async function openRw(id) {
   catch (e) { hideToast(); toast('تعذّر تنزيل المصحف، تحقق من الاتصال'); }
 }
 
-const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one') === 'long' ? 'one' : LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), tips: LS.get('tips', true), openTan: LS.get('openTan2', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
+const SET = { col: LS.get('col', true), big: LS.get('big', false), bg: LS.get('bg', 'green'), wake: LS.get('wake', true), layout: LS.get('layout', 'v2'), auto: false, autoSec: LS.get('autoSec', 60), edge: LS.get('edge', false), theme: LS.get('theme', 'manual'), tap: LS.get('tap', 'one') === 'long' ? 'one' : LS.get('tap', 'one'), qAlert: LS.get('qAlert', false), shw: SHWON, tips: LS.get('tips', true), openTan: LS.get('openTan2', true), font: LS.get('font', 'AM') === 'AQ' ? 'AM' : LS.get('font', 'AM') };
 const BGS = [['green', '#eef4f7', 'أزرق فاتح'], ['white', '#ffffff', 'أبيض'], ['sand', '#fbf6ea', 'رملي'], ['night', '#141a1e', 'ليلي']];
 function cycleBg() { const i = BGS.findIndex((b) => b[0] === SET.bg); SET.bg = BGS[(i + 1) % BGS.length][0]; LS.set('bg', SET.bg); applySet(); toast('الخلفية: ' + BGS.find((b) => b[0] === SET.bg)[2]); }
 function applySet() { document.body.style.setProperty('--qf', SET.font === 'sys' ? "'Noto Naskh Arabic','Geeza Pro','Traditional Arabic',serif" : SET.font); document.body.classList.toggle('nocol', !SET.col); document.body.classList.toggle('big', SET.big); document.body.classList.remove('bg-white', 'bg-sand', 'bg-night'); if (SET.bg !== 'green') document.body.classList.add('bg-' + SET.bg); }
@@ -419,6 +421,7 @@ function sheetMenu() { sheetBack = null;
   const t = ACT[day()] || { r: [], m: [] };
   let h = head('القائمة') + '<div class="mh"><div><b>الورد اليوم</b><span>' + ar(t.r.length) + ' صفحة · الختمة ' + ar(Math.round(KH.length / 6.04)) + '٪</span></div><button data-act="prog">التقدم</button><button data-act="marks">العلامات ' + ar(Object.keys(MK.marks).length) + '</button><button data-act="marks">الملاحظات ' + ar(Object.keys(MK.notes).length) + '</button></div>';
   h += '<div class="grp"><h3>المصحف</h3>' +
+    '<label class="opt">إضافة الشواهد من الشاطبية والدرّة<input type="checkbox" data-set="shw"' + (SET.shw ? ' checked' : '') + '></label>' +
     '<label class="opt">إظهار ألوان الخلاف<input type="checkbox" data-set="col"' + (SET.col ? ' checked' : '') + '></label>' +
     '<label class="opt">تكبير الخط (يلتف النص مع الشاشة)<input type="checkbox" data-set="big"' + (SET.big ? ' checked' : '') + '></label>' +
     '<div class="opt"><span>ترتيب الأسطر (مصحف حفص)</span><select data-layout>' + [['v1', 'طبعة المجمع ١٤٠٥'], ['v2', 'طبعة المجمع ١٤٢١'], ['flow', 'نص يلتف مع الشاشة']].filter(([k]) => k === 'flow' || (B.lines && B.lines[k])).map(([k, n]) => '<option value="' + k + '"' + (SET.layout === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
@@ -456,7 +459,7 @@ $('sheet').addEventListener('click', (e) => {
   const bg = t.closest('[data-bg]'); if (bg) { SET.bg = bg.dataset.bg; LS.set('bg', SET.bg); applySet(); return sheetMenu(); }
   const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if ($('sheet').querySelector('.mh')) sheetBack = sheetMenu; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
-$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k === 'openTan' ? 'openTan2' : k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
+$('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k === 'openTan' ? 'openTan2' : k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'shw') { SHWON = SET.shw; render(); } if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
 $('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
 $('prev').onclick = () => go(st.page - 1); $('next').onclick = () => go(st.page + 1);
 $('pnum').onchange = (e) => { const n = parseInt(e.target.value.replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c))); if (n) go(n); };
