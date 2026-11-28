@@ -784,7 +784,39 @@ $('sheet').addEventListener('click', (e) => {
   const a = t.closest('[data-act]'); if (a) { const k = a.dataset.act; if ($('sheet').querySelector('.mn') && k !== 'rw') sheetBack = sheetMenu; if (k === 'rw') return sheetRiwayat(); if (k === 'idx') return sheetIndex(); if (k === 'search') return sheetSearch(); if (k === 'marks') return sheetMarks(); if (k === 'prog') return sheetProgress(); if (k === 'about') return sheetAbout(); if (k === 'mushafs') return sheetMushafs(); if (k === 'news') return sheetNews(); closeSheet(); setMode(k); }
 });
 $('sheet').addEventListener('change', (e) => { const k = e.target.dataset.set; if (k) { SET[k] = e.target.checked; LS.set(k === 'openTan' ? 'openTan2' : k, SET[k]); applySet(); if (k === 'openTan') render(); if (k === 'auto') autoFlip(); if (k === 'big') render(); if (k === 'shw') { SHWON = SET.shw; render(); } if (k === 'wake') { if (SET.wake) wake(); else if (wl) { wl.release(); wl = null; } } } });
-$('bRw').onclick = sheetRiwayat; document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
+// ===== قائمة القراء المنسدلة من زر الرواية في الشريط العلوي: القارئ ثم راوياه =====
+let RWQ = null; // القارئ المفتوح في القائمة
+async function rwDrop() {
+  const d = $('rwDrop'), cur = RWS.get(RWV.id) || {}; if (RWQ === null) RWQ = cur.q || '';
+  let h = '';
+  for (const r of REG.extra || []) { const m = r.title.match(/^(.*?)\s*\((.*)\)$/); h += '<button class="rdx' + (r.id === RWV.id ? ' sel' : '') + '" data-rwd="' + r.id + '"><b>' + esc(m ? m[1] : r.title) + '</b>' + (m ? '<small>' + esc(m[2]) + '</small>' : '') + '</button>'; }
+  for (const q of REG.qurra) {
+    const o = q.q === RWQ, has = q.r.some((r) => r.id === RWV.id);
+    h += '<button class="rdq' + (o ? ' on' : '') + (has ? ' cur' : '') + '" data-rdq="' + esc(q.q) + '" aria-expanded="' + o + '"><span>' + esc(q.q) + '</span>' + ic(o ? IC.chD : IC.chL) + '</button>';
+    if (o) { h += '<div class="rdr">';
+      for (const r of q.r) {
+        if (r.status !== 'ready') { h += '<button class="off" disabled><b>' + esc(r.n) + '</b><small>قريبًا</small></button>'; continue; }
+        const saved = r.mushaf === 'base' || mushafCache[r.mushaf] || (await isSaved('data/m/' + r.mushaf + '.json'));
+        h += '<button class="' + (r.id === RWV.id ? 'sel' : '') + '" data-rwd="' + r.id + '"><b>' + esc(r.n) + '</b><small>' + (r.id === RWV.id ? 'المفتوح الآن' : saved ? 'جاهزة دون اتصال' : 'تُنزَّل عند الفتح') + '</small></button>';
+      }
+      h += '</div>'; }
+  }
+  h += '<button class="rdm" data-rdmore>' + ic(IC.dl) + '<span>تنزيل الروايات وإدارتها</span></button>';
+  d.innerHTML = h;
+  const b = $('bRw').getBoundingClientRect(), top = $('modes').getBoundingClientRect().bottom + 6;
+  d.style.top = top + 'px'; d.style.left = Math.max(8, Math.min(b.left, innerWidth - d.offsetWidth - 8)) + 'px';
+  d.classList.add('show'); $('bRw').setAttribute('aria-expanded', 'true');
+}
+function rwDropClose() { $('rwDrop').classList.remove('show'); $('bRw').setAttribute('aria-expanded', 'false'); RWQ = null; }
+$('bRw').onclick = () => { if ($('rwDrop').classList.contains('show')) rwDropClose(); else { closePop(); rwDrop(); } };
+$('rwDrop').addEventListener('click', (e) => {
+  const q = e.target.closest('[data-rdq]'); if (q) { RWQ = RWQ === q.dataset.rdq ? '' : q.dataset.rdq; const y = $('rwDrop').scrollTop; return rwDrop().then(() => { $('rwDrop').scrollTop = y; }); }
+  const r = e.target.closest('[data-rwd]'); if (r) { rwDropClose(); return openRw(r.dataset.rwd); }
+  if (e.target.closest('[data-rdmore]')) { rwDropClose(); sheetRiwayat(); }
+});
+// اللمس خارج القائمة يغلقها فقط
+document.addEventListener('click', (e) => { if (!$('rwDrop').classList.contains('show') || e.target.closest('#rwDrop,#bRw')) return; rwDropClose(); e.stopPropagation(); e.preventDefault(); }, true);
+addEventListener('resize', rwDropClose); document.addEventListener('click', (e) => { if (e.target.closest('[data-hidx]')) sheetIndex(); else if (e.target.closest('[data-hsrch]')) sheetSearch(); }); $('bMenu').onclick = sheetMenu;
 $('prev').onclick = () => go(st.page - 1); $('next').onclick = () => go(st.page + 1);
 $('pnum').onchange = (e) => { const n = parseInt(e.target.value.replace(/[٠-٩]/g, (c) => '٠١٢٣٤٥٦٧٨٩'.indexOf(c))); if (n) go(n); };
 
