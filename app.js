@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v70';
+const CACHE = 'q10-data-v71';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -443,8 +443,40 @@ function vTurn(carry) {
   vSay('الصفحة ' + ar(st.page) + ' — تابع القراءة'); vScroll(); return true;
 }
 function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); vScroll(); } }
+// ===== تحديد موضع القراءة من المصحف كله: يبدأ القارئ من أي آية فننتقل إليها =====
+let VF = null; // كلمات المصحف مسطّحة: w الكلمة، ai رقم الآية، wi ترتيبها في الآية، st أول كلمة لكل آية
+function vFlat() {
+  if (VF) return VF; VF = { w: [], ai: [], wi: [], st: [] };
+  for (let i = 0; i < B.ayahs.length; i++) { const [s, a] = B.ayahs[i]; VF.st.push(VF.w.length); vExp(s + ':' + a).forEach((x, k) => { VF.w.push(x); VF.ai.push(i); VF.wi.push(k); }); }
+  return VF;
+}
+function vJump(q) {
+  const i = VF.ai[q], o = VF.wi[q], [s, a] = B.ayahs[i], key = s + ':' + a, p = pageOfAyah(i);
+  st.page = p; st.last = null; st.revealed.clear();
+  for (let x = pageFirst[p - 1]; x < i; x++) st.revealed.add(B.ayahs[x][0] + ':' + B.ayahs[x][1]); // ما قبل موضع البدء في الصفحة ظاهر
+  st.part = o ? { key, n: o } : null; render(); scrollTo(0, 0);
+  VZ.key = key; VZ.base = o; vScroll();
+  vSay('سورة ' + B.suras[s - 1].name + ' — الآية ' + ar(a) + ' · تابع القراءة');
+}
+// يعيد true إذا عُرف الموضع (الحالي أو موضع جديد انتقلنا إليه)، وnull إذا احتجنا كلمات أكثر
+function vLocate(heard, final) {
+  let j = VZ.pos;
+  for (const sk of V_SKIP) { let m = 0; while (m < sk.length && heard[j + m] && vEq(heard[j + m], sk[m])) m++;
+    if (m === sk.length) j += m; else if (m && j + m >= heard.length && !final) return null; }
+  const n = heard.length - j; if (n < 3 && !(final && n >= 1)) return null;
+  const F = vFlat(), K = Math.min(n, 6), hits = [];
+  const at = (q) => { for (let m = 0; m < K; m++) if (!F.w[q + m] || !vEq(heard[j + m], F.w[q + m])) return false; return true; };
+  const cur = F.st[ayahIdx.get(VZ.key)] + VZ.base;
+  if (at(cur)) { VZ.pos = j; VZ.loc = false; return true; } // يقرأ من الموضع المنتظر نفسه
+  for (let q = 0; q < F.w.length; q++) if (vEq(heard[j], F.w[q]) && at(q)) { hits.push(q); if (hits.length > 40) break; }
+  if (!hits.length) { if (n >= 6 || final) { VZ.pos = j + 1; vSay('لم أتعرّف على الموضع بعد… تابع القراءة'); } return null; }
+  if (hits.length > 1 && n < 10 && !final) { vSay('أستمع… أحدّد الموضع'); return null; } // عبارة متكررة: ننتظر كلمات أكثر
+  const pc = pageFirst[st.page - 1]; hits.sort((x, y) => Math.abs(F.ai[x] - pc) - Math.abs(F.ai[y] - pc));
+  VZ.pos = j; VZ.loc = false; vJump(hits[0]); return true;
+}
 // تُطابَق كلمات الجلسة كلها من موضع الآية الحالية؛ والخطأ لا يُعلن إلا إذا جاءت بعده كلمتان أو انتهى الكلام
 function vMatch(heard, final) {
+  if (VZ.loc && !vLocate(heard, final)) { if (VZ.loc && VZ.on && !/أحدّد|لم أتعرّف/.test($('voiceSt').textContent)) vSay('أستمع… ابدأ القراءة من أي موضع'); return; }
   let j = VZ.pos;
   while (VZ.key) {
     const exp = vExp(VZ.key), [lo, hi] = vSpan(VZ.key, exp.length); let i = Math.max(VZ.base, lo);
@@ -473,7 +505,7 @@ function vStart() {
   if (!SR) { toast('متصفحك لا يدعم التعرّف على الصوت، جرّب متصفح Chrome', 3000); return; }
   if (RWV.mushaf !== 'base') { toast('التسميع بالصوت متاح الآن في مصحف حفص', 2500); return; }
   const k = vNext(); if (!k) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
-  if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true; vScroll();
+  if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true; VZ.loc = true; vScroll();
   const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r;
   r.onresult = (ev) => {
     if (!VZ.on) return; let acc = '';
@@ -485,7 +517,7 @@ function vStart() {
   r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') vStop('اسمح للموقع باستخدام الميكروفون ثم أعد المحاولة', true); else if (e.error === 'network') vStop('التسميع بالصوت يحتاج إلى اتصال بالإنترنت', true); };
   r.onend = () => { if (VZ.on) { VZ.pos = 0; VZ.base = st.part && st.part.key === VZ.key ? st.part.n : 0; try { r.start(); } catch (e) {} } };
   try { r.start(); } catch (e) {}
-  $('voiceBtn').classList.add('on'); $('voiceBtn').textContent = '⏹ أوقف'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]));
+  $('voiceBtn').classList.add('on'); $('voiceBtn').textContent = '⏹ أوقف'; vSay('أستمع… ابدأ القراءة من الآية ' + ar(VZ.key.split(':')[1]) + ' أو من أي موضع في المصحف');
 }
 $('voiceBtn').onclick = () => { if (VZ.on) vStop('توقّف التسميع'); else vStart(); };
 
