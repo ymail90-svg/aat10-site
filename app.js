@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v60';
+const CACHE = 'q10-data-v61';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -65,11 +65,12 @@ const sCol = (id) => SCOL[id] || SKINDS.find((x) => x[0] === id)[2];
 const sName = (id) => SKINDS.find((x) => x[0] === id)[1];
 const stopAt = (k) => Object.keys(STOPS).find((id) => STOPS[id] && STOPS[id].k === k && STOPS[id].rw === RWV.id);
 // ===== شواهد الشاطبية والدرّة على الآية (تجربة: الفاتحة) =====
-const SHD = { verses: {}, ayat: {}, loc: {} }, SHJ = new Set();
+const SHD = { verses: {}, ayat: {}, loc: {}, rules: null }, SHJ = new Set();
 // شواهد كل جزء في ملف مستقل يُحمَّل عند الوصول إليه
 async function loadShw(j) {
   if (!j || SHJ.has(j)) return; SHJ.add(j);
   try {
+    if (!SHD.rules) { const rj = await getJSON('data/shawahid/rules.json'); SHD.rules = rj.rules; Object.assign(SHD.verses, rj.verses); }
     const d = await getJSON('data/shawahid/j' + String(j).padStart(2, '0') + '.json');
     Object.assign(SHD.verses, d.verses); Object.assign(SHD.ayat, d.ayat);
     for (const [m, mp] of Object.entries(d.loc || {})) Object.assign(SHD.loc[m] ||= {}, mp);
@@ -81,7 +82,8 @@ let SHWON = LS.get('shw', true);
 const shwOf = (k) => {
   if (!SHWON) return null;
   const m = SHD.loc[RWV.mushaf], ks = m && k in m ? m[k] : [k];
-  const L = ks.flatMap((x) => SHD.ayat[x] || []); return L.length ? L : null;
+  // الحكم المتكرر مخزَّن مرة واحدة في القواعد، والموضع يحمل رقم القاعدة وكلمته وترتيبه
+  const L = ks.flatMap((x) => (SHD.ayat[x] || []).map((e) => (e.rule && SHD.rules && SHD.rules[e.rule] ? Object.assign({}, SHD.rules[e.rule], e) : e))); return L.length ? L : null;
 };
 function shwHTML(k) {
   const L = shwOf(k); if (!L) return '';
