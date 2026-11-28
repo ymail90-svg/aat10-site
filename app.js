@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v64';
+const CACHE = 'q10-data-v65';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -394,7 +394,9 @@ function vExp(key) {
 const vNext = () => { const e = document.querySelector('#page .hid[data-k]'); return e ? e.dataset.k : null; };
 function vSay(t, err) { const e = $('voiceSt'); if (e) { e.textContent = t; e.classList.toggle('err', !!err); } }
 function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg !== undefined) vSay(msg, err); }
-function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); } }
+// تمرير الصفحة لتبقى الكلمة التي يُنتظر قراؤها في منتصف الشاشة تقريبًا
+function vScroll() { requestAnimationFrame(() => { const e = document.querySelector('#page .hid'); if (!e) return; const r = e.getBoundingClientRect(), H = innerHeight; if (r.bottom > H * 0.62 || r.top < H * 0.15) scrollBy({ top: r.top - H * 0.35, behavior: 'smooth' }); }); }
+function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); vScroll(); } }
 // تُطابَق كلمات الجلسة كلها من موضع الآية الحالية؛ والخطأ لا يُعلن إلا إذا جاءت بعده كلمتان أو انتهى الكلام
 function vMatch(heard, final) {
   let j = VZ.pos;
@@ -407,13 +409,13 @@ function vMatch(heard, final) {
       if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
       if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
       if (final || j <= heard.length - 3) {
-        st.marks.set(VZ.key, 'mistake'); VZ.base = i; st.part = i ? { key: VZ.key, n: i } : null; render();
+        st.marks.set(VZ.key, 'mistake'); VZ.base = i; st.part = i ? { key: VZ.key, n: i } : null; render(); vScroll();
         vStop('توقّف: خطأ في الآية ' + ar(VZ.key.split(':')[1]) + ' بعد الكلمة ' + ar(i) + ' — اضغط «سمّع بصوتك» وأكمل من موضع الخطأ', true); return;
       }
       vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; // ننتظر تمام الكلام
     }
     if (i < exp.length) { vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; }
-    st.part = null; st.revealed.add(VZ.key); st.last = VZ.key; render();
+    st.part = null; st.revealed.add(VZ.key); st.last = VZ.key; render(); vScroll();
     VZ.pos = j; VZ.base = 0; VZ.key = vNext();
     if (!VZ.key) { vStop('أحسنت! أتممت تسميع الصفحة'); return; }
   }
@@ -423,7 +425,7 @@ function vStart() {
   if (!SR) { toast('متصفحك لا يدعم التعرّف على الصوت، جرّب متصفح Chrome', 3000); return; }
   if (RWV.mushaf !== 'base') { toast('التسميع بالصوت متاح الآن في مصحف حفص', 2500); return; }
   const k = vNext(); if (!k) { toast('لا توجد آيات مخفية في هذه الصفحة'); return; }
-  if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true;
+  if (k !== VZ.key) VZ.base = 0; VZ.key = k; VZ.pos = 0; VZ.on = true; vScroll();
   const r = new SR(); r.lang = 'ar-SA'; r.continuous = true; r.interimResults = true; VZ.rec = r;
   r.onresult = (ev) => {
     if (!VZ.on) return; let acc = '';
