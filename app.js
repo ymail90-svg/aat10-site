@@ -10,7 +10,7 @@ const qd = (t) => { t = t.replace(/ے/g, 'ى').replace(/ٞ/g, 'ࣱ').replace(/ٗ
 const ayn = (a) => '<span class="nb">' + ar(a) + '</span>';
 const LS = { get(k, d) { try { const v = localStorage.getItem('q10.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('q10.' + k, JSON.stringify(v)); } catch (e) {} } };
 // غيّر رقم الإصدار عند كل تحديث لبيانات المصاحف، فتُحذف النسخ المحفوظة القديمة وتُنزَّل الجديدة
-const CACHE = 'q10-data-v69';
+const CACHE = 'q10-data-v70';
 try { caches.keys().then((ks) => ks.forEach((k) => { if (k.startsWith('q10-data-') && k !== CACHE) caches.delete(k); })); } catch (e) {}
 
 let skL = new Set(); let REG, B, M = null, RWV = null; // السجل، بيانات حفص، المصحف الحالي، الرواية الحالية
@@ -427,15 +427,30 @@ function vSay(t, err) { const e = $('voiceSt'); if (e) { e.textContent = t; e.cl
 function vStop(msg, err) { VZ.on = false; try { VZ.rec && VZ.rec.abort(); } catch (e) {} $('voiceBtn').classList.remove('on'); $('voiceBtn').textContent = '🎤 سمّع بصوتك'; if (msg !== undefined) vSay(msg, err); }
 // تمرير الصفحة لتبقى الكلمة التي يُنتظر قراؤها في منتصف الشاشة تقريبًا
 function vScroll() { requestAnimationFrame(() => { const e = document.querySelector('#page .hid'); if (!e) return; const r = e.getBoundingClientRect(), H = innerHeight; if (r.bottom > H * 0.62 || r.top < H * 0.15) scrollBy({ top: r.top - H * 0.35, behavior: 'smooth' }); }); }
+// حدود كلمات الآية الظاهرة في الصفحة الحالية (الآية قد تبدأ في صفحة وتتم في التالية)
+function vSpan(key, n) {
+  if (SET.big || SET.layout === 'flow' || !B.lines || !B.lines[SET.layout]) return [0, n];
+  const P = B.lines[SET.layout], p = st.page, w0 = lnStart(P[p - 1]), w1 = p < 604 ? lnStart(P[p]) : 1e9;
+  const [s, a] = key.split(':').map(Number), b = ayahStart[ayahIdx.get(key)] + (a === 1 && s !== 1 && s !== 9 ? 4 : 0);
+  return [Math.max(0, Math.min(n, w0 - b)), Math.max(0, Math.min(n, w1 - b))];
+}
+// الانتقال إلى الصفحة التالية مع استمرار الاستماع؛ carry: بقية آية بدأت في الصفحة السابقة
+function vTurn(carry) {
+  if (st.page >= 604) { vStop('أحسنت! أتممت تسميع المصحف كاملًا'); return false; }
+  st.page++; st.last = null; st.revealed.clear(); st.part = carry || null; render(); scrollTo(0, 0);
+  VZ.key = vNext(); VZ.base = carry && carry.key === VZ.key ? carry.n : 0;
+  if (!VZ.key) { vStop('لا توجد آيات مخفية في الصفحة ' + ar(st.page)); return false; }
+  vSay('الصفحة ' + ar(st.page) + ' — تابع القراءة'); vScroll(); return true;
+}
 function vPart(key, n) { const o = st.part; if (!o || o.key !== key || o.n !== n) { st.part = n ? { key, n } : null; render(); vScroll(); } }
 // تُطابَق كلمات الجلسة كلها من موضع الآية الحالية؛ والخطأ لا يُعلن إلا إذا جاءت بعده كلمتان أو انتهى الكلام
 function vMatch(heard, final) {
   let j = VZ.pos;
   while (VZ.key) {
-    const exp = vExp(VZ.key); let i = VZ.base;
-    if (i && heard[j] && vEq(heard[j], exp[0]) && !vEq(heard[j], exp[i])) i = 0; // أعاد الآية من أولها
+    const exp = vExp(VZ.key), [lo, hi] = vSpan(VZ.key, exp.length); let i = Math.max(VZ.base, lo);
+    if (i > lo && heard[j] && vEq(heard[j], exp[lo]) && !vEq(heard[j], exp[i])) i = lo; // أعاد من أول الآية (أو من أول ما في الصفحة منها)
     if (i === 0) for (const sk of V_SKIP) { if (exp[0] === sk[0]) continue; let m = 0; while (m < sk.length && heard[j + m] && vEq(heard[j + m], sk[m])) m++; if (m === sk.length || (m >= 2 && j + m >= heard.length)) j += m; }
-    while (i < exp.length && j < heard.length) {
+    while (i < hi && j < heard.length) {
       if (vEq(heard[j], exp[i])) { i++; j++; continue; }
       if (heard[j + 1] && vEq(heard[j] + heard[j + 1], exp[i])) { i++; j += 2; continue; }
       if (exp[i + 1] && vEq(heard[j], exp[i] + exp[i + 1])) { i += 2; j++; continue; }
@@ -445,10 +460,12 @@ function vMatch(heard, final) {
       }
       vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; // ننتظر تمام الكلام
     }
-    if (i < exp.length) { vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; }
+    if (i < hi) { vPart(VZ.key, i); vSay('أستمع… الآية ' + ar(VZ.key.split(':')[1])); return; }
+    VZ.pos = j;
+    if (hi < exp.length) { if (!vTurn({ key: VZ.key, n: hi })) return; continue; } // بقية الآية في الصفحة التالية
     st.part = null; st.revealed.add(VZ.key); st.last = VZ.key; render(); vScroll();
-    VZ.pos = j; VZ.base = 0; VZ.key = vNext();
-    if (!VZ.key) { vStop('أحسنت! أتممت تسميع الصفحة'); return; }
+    VZ.base = 0; VZ.key = vNext();
+    if (!VZ.key && !vTurn()) return;
   }
 }
 function vStart() {
